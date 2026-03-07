@@ -1,0 +1,38 @@
+{
+  "name": "@ss/next-jwt-auth",
+  "version": "0.1.0",
+  "description": "Zero-config JWT authentication scaffolder for Next.js App Router",
+  "keywords": [
+    "next.js",
+    "auth",
+    "jwt",
+    "authentication",
+    "app-router",
+    "typescript"
+  ],
+  "author": "ss",
+  "license": "MIT",
+  "bin": {
+    "next-jwt-auth": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "fs-extra": "^11.2.0",
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.0.0",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.3.0",
+    "typescript": "^5.0.0"
+  }
+}

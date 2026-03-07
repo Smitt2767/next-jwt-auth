@@ -1,0 +1,9 @@
+{
+  "name": "next-jwt-auth-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter @ss/next-jwt-auth build",
+    "dev": "pnpm --filter @ss/next-jwt-auth dev",
+    "lint": "pnpm --filter @ss/next-jwt-auth lint"
+  }
+}
