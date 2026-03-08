@@ -2,12 +2,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import {
-  clearTokenCookies,
-  getTokensFromCookies,
-  isTokenValid,
-  setTokenCookies,
-} from "../core";
+import { getTokensFromCookies, isTokenValid } from "../core";
 import type { Session, SessionUser } from "../types";
 import { getGlobalAuthConfig } from "../config";
 
@@ -15,39 +10,28 @@ import { getGlobalAuthConfig } from "../config";
  * Module-level cached resolver. React's `cache()` deduplicates this per request,
  * so calling `getSession()` multiple times in one render tree costs exactly one
  * cookie read and one adapter.fetchUser() call.
+ *
+ * Intentionally does NOT refresh tokens or write cookies — that is handled by
+ * the middleware before the request reaches this point. Attempting to set cookies
+ * during page rendering throws in Next.js (only allowed in Server Actions /
+ * Route Handlers).
  */
 const resolveSession = cache(async (): Promise<Session | null> => {
   const config = getGlobalAuthConfig();
   const tokens = await getTokensFromCookies(config);
   if (!tokens) return null;
 
-  let { accessToken, refreshToken } = tokens;
+  const { accessToken, refreshToken } = tokens;
 
-  // Access token is expired — attempt a silent refresh
-  if (!isTokenValid(accessToken)) {
-    if (!isTokenValid(refreshToken)) {
-      // Both tokens are invalid — clear cookies and return no session
-      await clearTokenCookies(config);
-      return null;
-    }
-
-    try {
-      const refreshed = await config.adapter.refreshToken(refreshToken);
-      await setTokenCookies(refreshed, config);
-      accessToken = refreshed.accessToken;
-      refreshToken = refreshed.refreshToken;
-    } catch {
-      // Refresh failed — clear cookies so the user is asked to log in again
-      await clearTokenCookies(config);
-      return null;
-    }
-  }
+  // If the access token is invalid here, the middleware either could not refresh
+  // (e.g. refresh token also expired) or is not running on this route.
+  // Either way, treat it as no session — do not attempt to set cookies.
+  if (!isTokenValid(accessToken)) return null;
 
   try {
     const user = await config.adapter.fetchUser(accessToken);
     return { accessToken, refreshToken, user };
   } catch {
-    // fetchUser failed — return null but don't clear cookies (might be transient)
     return null;
   }
 });
@@ -62,19 +46,24 @@ export async function getSession(): Promise<Session | null> {
 }
 
 /**
- * Returns the current access token, or null if not authenticated.
+ * Returns the current access token directly from cookies.
+ * Does NOT call fetchUser — use getSession() if you need the full session.
  */
 export async function getAccessToken(): Promise<string | null> {
-  const session = await resolveSession();
-  return session?.accessToken ?? null;
+  const config = getGlobalAuthConfig();
+  const tokens = await getTokensFromCookies(config);
+  if (!tokens || !isTokenValid(tokens.accessToken)) return null;
+  return tokens.accessToken;
 }
 
 /**
- * Returns the current refresh token, or null if not authenticated.
+ * Returns the current refresh token directly from cookies.
+ * Does NOT call fetchUser — use getSession() if you need the full session.
  */
 export async function getRefreshToken(): Promise<string | null> {
-  const session = await resolveSession();
-  return session?.refreshToken ?? null;
+  const config = getGlobalAuthConfig();
+  const tokens = await getTokensFromCookies(config);
+  return tokens?.refreshToken ?? null;
 }
 
 /**
