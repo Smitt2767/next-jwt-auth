@@ -230,6 +230,16 @@ npx @ss/next-jwt-auth check
 
 Exits with code `1` if any check fails.
 
+### `uninstall`
+
+Removes the scaffolded auth files from your project. Interactively asks whether to delete the library directory, `auth.ts`, and `middleware.ts` / `proxy.ts` — so you can keep whatever you want.
+
+```bash
+npx @ss/next-jwt-auth uninstall
+```
+
+> `auth.ts` defaults to **no** when prompted — it contains your adapter implementation and is skipped unless you explicitly confirm.
+
 ### `--version` / `--help`
 
 ```bash

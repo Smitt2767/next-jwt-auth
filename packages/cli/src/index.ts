@@ -1,6 +1,7 @@
 import { init } from "./commands/init";
 import { update } from "./commands/update";
 import { check } from "./commands/check";
+import { uninstall } from "./commands/uninstall";
 
 // Injected at build time from the root monorepo package.json by tsup's `define`
 declare const __LIB_VERSION__: string;
@@ -16,6 +17,8 @@ async function main() {
     await update(dryRun);
   } else if (command === "check") {
     await check();
+  } else if (command === "uninstall") {
+    await uninstall();
   } else if (command === "--help" || command === "-h") {
     console.log("");
     console.log(
@@ -33,7 +36,10 @@ async function main() {
       "    npx @ss/next-jwt-auth update --dry-run   Preview changes without writing any files",
     );
     console.log(
-      "    npx @ss/next-jwt-auth check     Validate your project setup (exits with code 1 on failure)",
+      "    npx @ss/next-jwt-auth check        Validate your project setup (exits with code 1 on failure)",
+    );
+    console.log(
+      "    npx @ss/next-jwt-auth uninstall    Remove scaffolded auth files from the project",
     );
     console.log("");
   } else if (command === "--version" || command === "-v") {
