@@ -76,6 +76,15 @@ export const auth = Auth({
 
     // Called automatically by middleware and fetchSession when the access token
     // is expired or within the refresh threshold. Never called on the client.
+    //
+    // ⚠️  Race condition warning: if the user has multiple tabs open, two tabs
+    // can call refreshToken() concurrently with the same refresh token. If your
+    // backend uses rotate-on-use (single-use) refresh tokens, one request will
+    // succeed and the other will receive a 401 — invalidating the session in
+    // that tab. To handle this gracefully your backend should either:
+    //   a) Accept the same refresh token within a short reuse window (~5s), or
+    //   b) Return the same new token pair for duplicate in-flight requests.
+    // If you use long-lived, multi-use refresh tokens this is not an issue.
     async refreshToken(refreshToken) {
       const res = await fetch("https://your-api.com/auth/refresh", {
         method: "POST",
