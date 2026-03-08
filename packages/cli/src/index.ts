@@ -2,6 +2,9 @@ import { init } from "./commands/init";
 import { update } from "./commands/update";
 import { check } from "./commands/check";
 
+// Injected at build time from the root monorepo package.json by tsup's `define`
+declare const __LIB_VERSION__: string;
+
 const args = process.argv.slice(2);
 const command = args[0];
 
@@ -26,13 +29,11 @@ async function main() {
       "    npx @ss/next-jwt-auth update    Update library files to the latest version",
     );
     console.log(
-      "    npx @ss/next-jwt-auth check     Validate your project setup",
+      "    npx @ss/next-jwt-auth check     Validate your project setup (exits with code 1 on failure)",
     );
     console.log("");
   } else if (command === "--version" || command === "-v") {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const pkg = require("../package.json") as { version: string };
-    console.log(pkg.version);
+    console.log(__LIB_VERSION__);
   } else {
     console.error(`  Unknown command: ${command}`);
     console.log("  Run  npx @ss/next-jwt-auth --help  for usage");
