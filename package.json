@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "pnpm --filter @ss/next-jwt-auth build",
-    "dev": "pnpm --filter @ss/next-jwt-auth dev",
-    "lint": "pnpm --filter @ss/next-jwt-auth lint"
+    "build": "pnpm --filter @smittdev/next-jwt-auth build",
+    "dev": "pnpm --filter @smittdev/next-jwt-auth dev",
+    "lint": "pnpm --filter @smittdev/next-jwt-auth lint"
   }
 }

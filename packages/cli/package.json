@@ -1,5 +1,5 @@
 {
-  "name": "@ss/next-jwt-auth",
+  "name": "@smittdev/next-jwt-auth",
   "version": "0.1.0",
   "description": "Zero-config JWT authentication scaffolder for Next.js App Router",
   "keywords": [
@@ -12,6 +12,9 @@
   ],
   "author": "ss",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "bin": {
     "next-jwt-auth": "./dist/index.js"
   },
