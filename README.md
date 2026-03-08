@@ -48,53 +48,117 @@ You'll be asked:
 - Whether to generate `middleware.ts` (or `proxy.ts` for Next.js 16+)
 - Whether to install `zod` (the only peer dependency)
 
-### 2. Implement your adapter
+### 2. Implement your adapter and configure
 
-Open the generated `auth.ts` at your project root and fill in three functions:
+Open the generated `auth.ts` at your project root. Fill in the three required adapter functions and optionally tune the configuration:
 
 ```typescript
 // auth.ts
 import { Auth } from "@/lib/auth";
 
 export const auth = Auth({
+  // ── Adapter (required) ───────────────────────────────────────────────────
+  // Three functions are required. They call your backend API — you decide the
+  // shape of the request and response. The library only cares about the return
+  // types: TokenPair ({ accessToken, refreshToken }) and SessionUser ({ id, email, ... }).
+
   adapter: {
+    // Called by loginAction() with whatever credentials you pass from the client.
     async login(credentials) {
       const res = await fetch("https://your-api.com/auth/login", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
       if (!res.ok) throw new Error("Invalid credentials");
-      return res.json(); // { accessToken, refreshToken }
+      return res.json(); // must return { accessToken, refreshToken }
     },
 
+    // Called automatically by middleware and fetchSession when the access token
+    // is expired or within the refresh threshold. Never called on the client.
     async refreshToken(refreshToken) {
       const res = await fetch("https://your-api.com/auth/refresh", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
       });
       if (!res.ok) throw new Error("Session expired");
-      return res.json(); // { accessToken, refreshToken }
+      return res.json(); // must return { accessToken, refreshToken }
     },
 
+    // Called after login and during fetchSession to populate session.user.
+    // Return whatever user fields your app needs — extend SessionUser below
+    // via module augmentation to get full type safety.
     async fetchUser(accessToken) {
       const res = await fetch("https://your-api.com/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      return res.json(); // { id, email, ... }
+      if (!res.ok) throw new Error("Failed to fetch user");
+      return res.json(); // must return { id, email, ...any extra fields }
     },
 
     // Optional — called on logout to invalidate the refresh token server-side.
     // If omitted, logout still clears cookies locally but skips the API call.
+    // Errors here are non-fatal — cookies are cleared regardless.
     async logout({ refreshToken }) {
       await fetch("https://your-api.com/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
       });
-      // Errors here are non-fatal — cookies are cleared regardless.
     },
   },
+
+  // ── Cookies (optional) ───────────────────────────────────────────────────
+  // All token cookies are httpOnly and never accessible to JavaScript.
+  // The `name` value is used as a base — two cookies are created:
+  //   <name>.access  — short-lived access token
+  //   <name>.refresh — long-lived refresh token
+
+  cookies: {
+    name: "auth-session",          // default: "auth-session"
+    secure: true,                  // default: true in production, false in development
+    sameSite: "lax",               // default: "lax" — use "strict" for stricter CSRF protection
+    path: "/",                     // default: "/"
+    // domain: "example.com",      // optional — set for cross-subdomain sharing
+  },
+
+  // ── Token refresh (optional) ─────────────────────────────────────────────
+  // Controls when the middleware proactively refreshes an access token before
+  // it expires. If the token has less than `refreshThresholdSeconds` remaining,
+  // the middleware calls adapter.refreshToken() and writes new cookies.
+
+  refresh: {
+    refreshThresholdSeconds: 120,  // default: 120 (refresh when < 2 min remain)
+  },
+
+  // ── Pages (optional) ─────────────────────────────────────────────────────
+  // Redirect targets used by requireSession(), loginAction(), and logoutAction().
+
+  pages: {
+    signIn: "/login",              // default: "/login"  — requireSession() redirects here
+    afterSignIn: "/",              // default: "/"       — loginAction() redirects here
+    afterSignOut: "/login",        // default: "/login"  — logoutAction() redirects here
+  },
+
+  // ── Debug (optional) ─────────────────────────────────────────────────────
+  // Logs token refresh decisions, session resolution, middleware activity,
+  // and action outcomes to the server console. Keep off in production.
+
+  debug: process.env.NODE_ENV === "development",
 });
+
+// ── Extending the user type (optional) ──────────────────────────────────────
+// Declare extra fields on SessionUser via module augmentation.
+// These fields will be typed everywhere: server helpers, useSession(), middleware.
+
+declare module "@/lib/auth" {
+  interface SessionUser {
+    name: string;
+    role: "admin" | "user";
+    avatarUrl?: string;
+  }
+}
 ```
 
 ### 3. Wrap your layout
@@ -363,23 +427,6 @@ const data = await auth.withRequiredSession(async (session) => {
   return fetchProtectedData(session.accessToken);
 });
 ```
-
-### Extending the User Type
-
-Add custom fields to the session user via module augmentation in `auth.ts`:
-
-```typescript
-// auth.ts
-declare module "@/lib/auth" {
-  interface SessionUser {
-    name: string;
-    role: "admin" | "user";
-    avatarUrl?: string;
-  }
-}
-```
-
-Now `session.user.name` and `session.user.role` are fully typed everywhere — in Server Components, client hooks, and middleware.
 
 ---
 
