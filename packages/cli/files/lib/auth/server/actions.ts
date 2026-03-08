@@ -7,9 +7,13 @@ import {
   isTokenValid,
   setTokenCookies,
 } from "../core";
-import type { ActionResult, SessionActionData } from "../types";
+import type {
+  ActionResult,
+  LoginActionOptions,
+  SessionActionData,
+} from "../types";
 import { TokenPairSchema } from "../types";
-import { getGlobalAuthConfig } from "../config";
+import { getGlobalAuthConfig, debugLog } from "../config";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -34,6 +38,20 @@ function isNextRedirectError(error: unknown): boolean {
   );
 }
 
+/**
+ * Validates a callbackUrl to prevent open-redirect attacks.
+ * Only root-relative paths (starting with "/" but not "//") are allowed.
+ * Any other value — absolute URLs, protocol-relative URLs, empty strings —
+ * is rejected and returns undefined, falling back to pages.afterSignIn.
+ */
+function sanitizeCallbackUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  // Allow root-relative paths only — blocks `//evil.com` and `https://evil.com`
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  debugLog("sanitizeCallbackUrl: rejected unsafe callbackUrl", { url });
+  return undefined;
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 /**
@@ -46,34 +64,59 @@ function isNextRedirectError(error: unknown): boolean {
 export async function fetchSessionAction(): Promise<
   ActionResult<SessionActionData | null>
 > {
+  debugLog("fetchSessionAction: called");
+
   try {
     const config = getGlobalAuthConfig();
     const tokens = await getTokensFromCookies(config);
 
-    if (!tokens) return { success: true, data: null };
+    if (!tokens) {
+      debugLog("fetchSessionAction: no tokens found in cookies");
+      return { success: true, data: null };
+    }
 
     let { accessToken, refreshToken } = tokens;
 
     if (!isTokenValid(accessToken)) {
+      debugLog("fetchSessionAction: access token invalid — attempting refresh");
+
       if (!isTokenValid(refreshToken)) {
+        debugLog(
+          "fetchSessionAction: refresh token also invalid — clearing cookies",
+        );
         await clearTokenCookies(config);
         return { success: true, data: null };
       }
+
       try {
         const refreshed = await config.adapter.refreshToken(refreshToken);
         const validated = validateTokenPair(refreshed);
         await setTokenCookies(validated, config);
         accessToken = validated.accessToken;
         refreshToken = validated.refreshToken;
-      } catch {
+        debugLog("fetchSessionAction: token refresh successful");
+      } catch (refreshError) {
+        debugLog(
+          "fetchSessionAction: token refresh failed — clearing cookies",
+          {
+            error:
+              refreshError instanceof Error
+                ? refreshError.message
+                : String(refreshError),
+          },
+        );
         await clearTokenCookies(config);
         return { success: true, data: null };
       }
     }
 
     const user = await config.adapter.fetchUser(accessToken);
+    debugLog("fetchSessionAction: session resolved", { userId: user.id });
     return { success: true, data: { accessToken, refreshToken, user } };
   } catch (error) {
+    debugLog("fetchSessionAction: unexpected error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
       success: false,
       error: extractErrorMessage(error, "Failed to fetch session."),
@@ -84,29 +127,44 @@ export async function fetchSessionAction(): Promise<
 /**
  * Logs the user in with the provided credentials.
  *
- * By default (`redirect: true`) redirects to `redirectTo` or `pages.afterSignIn`
- * after a successful login — matching next-auth behaviour.
+ * By default (`redirect: true`) redirects after a successful login using
+ * the first truthy value in this priority order:
+ *   1. `options.redirectTo`  — explicit override, always wins
+ *   2. `options.callbackUrl` — typically the `?callbackUrl=` param set by
+ *      requireSession(); validated to prevent open-redirect attacks
+ *   3. `config.pages.afterSignIn` — the configured default
  *
  * Set `redirect: false` to disable the automatic redirect and handle
  * navigation yourself on the client based on the returned ActionResult.
  *
  * @example
- * // Default — redirect happens automatically
+ * // Default — redirect to afterSignIn
  * await loginAction({ email, password });
  *
- * // Disable redirect — handle it on the client
+ * // Honour the callbackUrl from the URL search params
  * const result = await loginAction(
  *   { email, password },
- *   { redirect: false }
+ *   { callbackUrl: searchParams.get("callbackUrl") ?? undefined },
+ * );
+ *
+ * // Disable redirect entirely — handle navigation on the client
+ * const result = await loginAction(
+ *   { email, password },
+ *   { redirect: false },
  * );
  * if (result.success) router.push("/dashboard");
  * else setError(result.error);
  */
 export async function loginAction(
   credentials: Record<string, unknown>,
-  options: { redirect?: boolean; redirectTo?: string } = {},
+  options: LoginActionOptions = {},
 ): Promise<ActionResult<SessionActionData>> {
-  const { redirect: shouldRedirect = true, redirectTo } = options;
+  const { redirect: shouldRedirect = true, redirectTo, callbackUrl } = options;
+
+  debugLog("loginAction: called", {
+    shouldRedirect,
+    hasCallbackUrl: !!callbackUrl,
+  });
 
   try {
     const config = getGlobalAuthConfig();
@@ -114,6 +172,8 @@ export async function loginAction(
     const tokens = validateTokenPair(rawTokens);
     await setTokenCookies(tokens, config);
     const user = await config.adapter.fetchUser(tokens.accessToken);
+
+    debugLog("loginAction: login successful", { userId: user.id });
 
     const result: ActionResult<SessionActionData> = {
       success: true,
@@ -125,13 +185,25 @@ export async function loginAction(
     };
 
     if (shouldRedirect) {
+      // Priority: explicit redirectTo > sanitized callbackUrl > configured default
+      const destination =
+        redirectTo ??
+        sanitizeCallbackUrl(callbackUrl) ??
+        config.pages.afterSignIn;
+
+      debugLog("loginAction: redirecting", { destination });
       // redirect() throws internally — this line never returns
-      redirect(redirectTo ?? config.pages.afterSignIn);
+      redirect(destination);
     }
 
     return result;
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
+
+    debugLog("loginAction: login failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     const config = getGlobalAuthConfig();
     await clearTokenCookies(config).catch(() => {});
     return {
@@ -165,6 +237,9 @@ export async function logoutAction(
   options: { redirect?: boolean; redirectTo?: string } = {},
 ): Promise<ActionResult<null>> {
   const { redirect: shouldRedirect = true, redirectTo } = options;
+
+  debugLog("logoutAction: called", { shouldRedirect });
+
   const config = getGlobalAuthConfig();
 
   try {
@@ -173,7 +248,18 @@ export async function logoutAction(
     if (tokens && config.adapter.logout) {
       try {
         await config.adapter.logout(tokens);
+        debugLog("logoutAction: adapter.logout() completed");
       } catch (adapterError) {
+        // Non-fatal — cookies will still be cleared regardless
+        debugLog(
+          "logoutAction: adapter.logout() threw — cookies will still be cleared",
+          {
+            error:
+              adapterError instanceof Error
+                ? adapterError.message
+                : String(adapterError),
+          },
+        );
         console.error(
           "[next-jwt-auth] logoutAction: adapter.logout() threw. Cookies will still be cleared.",
           adapterError,
@@ -182,8 +268,12 @@ export async function logoutAction(
     }
 
     await clearTokenCookies(config);
+    debugLog("logoutAction: cookies cleared");
   } catch (error) {
     if (isNextRedirectError(error)) throw error;
+    debugLog("logoutAction: unexpected error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
       success: false,
       error: extractErrorMessage(error, "Logout failed. Please try again."),
@@ -191,8 +281,10 @@ export async function logoutAction(
   }
 
   if (shouldRedirect) {
-    // redirect() throws internally — called outside try/catch so it is never swallowed
-    redirect(redirectTo ?? config.pages.afterSignOut);
+    const destination = redirectTo ?? config.pages.afterSignOut;
+    debugLog("logoutAction: redirecting", { destination });
+    // redirect() is called outside try/catch so it is never swallowed
+    redirect(destination);
   }
 
   return { success: true, data: null };
@@ -205,15 +297,19 @@ export async function logoutAction(
 export async function refreshSessionAction(): Promise<
   ActionResult<SessionActionData>
 > {
+  debugLog("refreshSessionAction: called");
+
   try {
     const config = getGlobalAuthConfig();
     const tokens = await getTokensFromCookies(config);
 
     if (!tokens) {
+      debugLog("refreshSessionAction: no tokens found");
       return { success: false, error: "No session found. Please log in." };
     }
 
     if (!isTokenValid(tokens.refreshToken)) {
+      debugLog("refreshSessionAction: refresh token is invalid or expired");
       await clearTokenCookies(config);
       return {
         success: false,
@@ -226,6 +322,8 @@ export async function refreshSessionAction(): Promise<
     await setTokenCookies(refreshed, config);
     const user = await config.adapter.fetchUser(refreshed.accessToken);
 
+    debugLog("refreshSessionAction: refresh successful", { userId: user.id });
+
     return {
       success: true,
       data: {
@@ -235,6 +333,9 @@ export async function refreshSessionAction(): Promise<
       },
     };
   } catch (error) {
+    debugLog("refreshSessionAction: failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     const config = getGlobalAuthConfig();
     await clearTokenCookies(config).catch(() => {});
     return {

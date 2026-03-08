@@ -49,6 +49,7 @@ import {
  *     async refreshToken(token) { ... },
  *     async fetchUser(accessToken) { ... },
  *   },
+ *   debug: process.env.NODE_ENV === "development",
  * });
  */
 export function Auth(config: AuthConfig) {
@@ -119,4 +120,5 @@ export type {
   ActionResult,
   SessionActionData,
   AuthActions,
+  LoginActionOptions,
 } from "./types";

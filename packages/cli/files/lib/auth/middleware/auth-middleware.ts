@@ -1,7 +1,7 @@
 // lib/auth/middleware/auth-middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getSecondsUntilExpiry, isTokenValid } from "../core/jwt";
-import { getGlobalAuthConfig } from "../config";
+import { getGlobalAuthConfig, debugLog } from "../config";
 
 export interface AuthMiddlewareResult {
   /** True if the request has a valid, non-expired access token. */
@@ -106,6 +106,7 @@ export function createAuthMiddleware() {
     request: NextRequest,
   ): Promise<AuthMiddlewareResult> {
     const config = getGlobalAuthConfig();
+    const { pathname } = request.nextUrl;
 
     let accessToken =
       request.cookies.get(config.cookieNames.accessToken)?.value ?? null;
@@ -115,22 +116,48 @@ export function createAuthMiddleware() {
     let refreshedTokens: { accessToken: string; refreshToken: string } | null =
       null;
 
+    if (!accessToken && !refreshToken) {
+      debugLog("Middleware: no tokens found", { pathname });
+    }
+
     // Refresh if: no access token, expired, or within the refresh threshold
+    const secondsRemaining = accessToken
+      ? getSecondsUntilExpiry(accessToken)
+      : 0;
     const needsRefresh =
       !accessToken ||
       !isTokenValid(accessToken) ||
-      getSecondsUntilExpiry(accessToken) <= config.refreshThresholdSeconds;
+      secondsRemaining <= config.refreshThresholdSeconds;
 
     if (needsRefresh && refreshToken && isTokenValid(refreshToken)) {
+      debugLog("Middleware: access token needs refresh — attempting", {
+        pathname,
+        reason: !accessToken
+          ? "no access token"
+          : !isTokenValid(accessToken)
+            ? "access token expired"
+            : `within threshold (${secondsRemaining}s remaining)`,
+      });
+
       try {
         refreshedTokens = await config.adapter.refreshToken(refreshToken);
         accessToken = refreshedTokens.accessToken;
-      } catch {
+        debugLog("Middleware: token refresh successful", { pathname });
+      } catch (error) {
         // Refresh failed — proceed with the existing (potentially expired) token state
+        debugLog(
+          "Middleware: token refresh failed — proceeding with existing state",
+          {
+            pathname,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
       }
     }
 
     const isAuthenticated = accessToken ? isTokenValid(accessToken) : false;
+
+    debugLog("Middleware: resolved", { pathname, isAuthenticated });
 
     function response(base: NextResponse): NextResponse {
       if (refreshedTokens) {
@@ -144,6 +171,10 @@ export function createAuthMiddleware() {
     }
 
     function redirect(url: URL): NextResponse {
+      debugLog("Middleware: redirecting and clearing session cookies", {
+        pathname,
+        destination: url.pathname,
+      });
       const redirectResponse = NextResponse.redirect(url);
       clearTokensFromResponse(redirectResponse);
       return redirectResponse;

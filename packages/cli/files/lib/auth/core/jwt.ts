@@ -14,7 +14,6 @@ export function decodeJwt(token: string): TokenPayload | null {
     if (segments.length !== 3) return null;
 
     const payloadSegment = segments[1];
-    // Convert base64url to standard base64 and pad to a valid length
     const base64 = payloadSegment
       .replace(/-/g, "+")
       .replace(/_/g, "/")
@@ -34,18 +33,11 @@ export function decodeJwt(token: string): TokenPayload | null {
 }
 
 export interface TokenExpiryInfo {
-  /** Seconds remaining until the token expires (may be negative if expired). */
   maxAgeSeconds: number;
-  /** The absolute expiry date. */
   expiresAt: Date;
-  /** True if the token has already expired. */
   isExpired: boolean;
 }
 
-/**
- * Returns expiry information for a JWT.
- * Returns null if the token cannot be decoded or lacks an `exp` claim.
- */
 export function getTokenExpiry(token: string): TokenExpiryInfo | null {
   const payload = decodeJwt(token);
   if (!payload) return null;
@@ -58,25 +50,14 @@ export function getTokenExpiry(token: string): TokenExpiryInfo | null {
   const nowMs = Date.now();
   const maxAgeSeconds = Math.floor((expiresAt.getTime() - nowMs) / 1000);
 
-  return {
-    maxAgeSeconds,
-    expiresAt,
-    isExpired: maxAgeSeconds <= 0,
-  };
+  return { maxAgeSeconds, expiresAt, isExpired: maxAgeSeconds <= 0 };
 }
 
-/**
- * Returns true if the token is a valid, non-expired JWT.
- */
 export function isTokenValid(token: string): boolean {
   const expiry = getTokenExpiry(token);
   return expiry !== null && !expiry.isExpired;
 }
 
-/**
- * Returns the number of seconds until the token expires.
- * Returns 0 if the token is invalid or already expired.
- */
 export function getSecondsUntilExpiry(token: string): number {
   const expiry = getTokenExpiry(token);
   if (!expiry) return 0;

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getTokensFromCookies, isTokenValid } from "../core";
 import type { Session, SessionUser } from "../types";
-import { getGlobalAuthConfig } from "../config";
+import { getGlobalAuthConfig, debugLog } from "../config";
 
 /**
  * Module-level cached resolver. React's `cache()` deduplicates this per request,
@@ -19,19 +19,35 @@ import { getGlobalAuthConfig } from "../config";
 const resolveSession = cache(async (): Promise<Session | null> => {
   const config = getGlobalAuthConfig();
   const tokens = await getTokensFromCookies(config);
-  if (!tokens) return null;
+
+  if (!tokens) {
+    debugLog("resolveSession: no tokens found in cookies");
+    return null;
+  }
 
   const { accessToken, refreshToken } = tokens;
 
   // If the access token is invalid here, the middleware either could not refresh
   // (e.g. refresh token also expired) or is not running on this route.
   // Either way, treat it as no session — do not attempt to set cookies.
-  if (!isTokenValid(accessToken)) return null;
+  if (!isTokenValid(accessToken)) {
+    debugLog(
+      "resolveSession: access token is invalid or expired — treating as no session",
+    );
+    return null;
+  }
 
   try {
     const user = await config.adapter.fetchUser(accessToken);
+    debugLog("resolveSession: session resolved", { userId: user.id });
     return { accessToken, refreshToken, user };
-  } catch {
+  } catch (error) {
+    debugLog(
+      "resolveSession: adapter.fetchUser() threw — treating as no session",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+    );
     return null;
   }
 });
@@ -78,6 +94,10 @@ export async function getUser(): Promise<SessionUser | null> {
  * Returns the current session, or redirects to the sign-in page if not authenticated.
  * Use this as a server-side guard in protected pages and layouts.
  *
+ * When `includeCallbackUrl` is true (default), the current path is appended
+ * as a `?callbackUrl=` search param so your login page can redirect back
+ * after a successful login.
+ *
  * @example
  * // app/dashboard/page.tsx
  * const session = await auth.requireSession();
@@ -99,6 +119,13 @@ export async function requireSession(
           headersList.get("x-invoke-path") ??
           "";
         if (currentPath) {
+          debugLog(
+            "requireSession: unauthenticated — redirecting with callbackUrl",
+            {
+              signIn: config.pages.signIn,
+              callbackUrl: currentPath,
+            },
+          );
           redirect(
             `${config.pages.signIn}?callbackUrl=${encodeURIComponent(currentPath)}`,
           );
@@ -107,6 +134,10 @@ export async function requireSession(
         if (isRedirectError(error)) throw error;
       }
     }
+
+    debugLog("requireSession: unauthenticated — redirecting to signIn", {
+      signIn: config.pages.signIn,
+    });
     redirect(config.pages.signIn);
   }
 

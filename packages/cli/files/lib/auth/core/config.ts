@@ -54,5 +54,6 @@ export function createAuthConfig(config: AuthConfig): ResolvedAuthConfig {
       afterSignIn: config.pages?.afterSignIn ?? DEFAULT_PAGES.afterSignIn,
       afterSignOut: config.pages?.afterSignOut ?? DEFAULT_PAGES.afterSignOut,
     },
+    debug: config.debug ?? false,
   };
 }

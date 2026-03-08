@@ -32,3 +32,23 @@ export function getGlobalAuthConfig(): ResolvedAuthConfig {
   }
   return _config;
 }
+
+/**
+ * Logs a debug message to the console when `debug: true` is set in the config.
+ * All messages are prefixed with `[next-jwt-auth]` so they are easy to find
+ * and filter in the browser/server console.
+ *
+ * Safe to call before `Auth()` is initialized — silently no-ops if the
+ * config singleton has not been set yet.
+ *
+ * @example
+ * debugLog("Middleware: attempting token refresh", { path: "/dashboard" });
+ */
+export function debugLog(message: string, data?: unknown): void {
+  if (!_config?.debug) return;
+  if (data !== undefined) {
+    console.log(`[next-jwt-auth] ${message}`, data);
+  } else {
+    console.log(`[next-jwt-auth] ${message}`);
+  }
+}

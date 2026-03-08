@@ -86,7 +86,7 @@ export interface RefreshOptions {
 export interface AuthPages {
   /** The sign-in page path. Defaults to "/login". */
   signIn?: string;
-  /** Where to redirect after successful login. Defaults to "/dashboard". */
+  /** Where to redirect after successful login. Defaults to "/". */
   afterSignIn?: string;
   /** Where to redirect after logout. Defaults to "/". */
   afterSignOut?: string;
@@ -97,6 +97,15 @@ export interface AuthConfig {
   cookies?: CookieOptions;
   refresh?: RefreshOptions;
   pages?: AuthPages;
+  /**
+   * Enable verbose debug logging to the console.
+   * Logs token refresh decisions, session resolution, middleware activity,
+   * and action outcomes. Should only be enabled in development.
+   *
+   * @example
+   * debug: process.env.NODE_ENV === "development",
+   */
+  debug?: boolean;
 }
 
 // ─── Resolved Config (internal) ──────────────────────────────────────────────
@@ -114,6 +123,8 @@ export interface ResolvedAuthConfig {
   };
   refreshThresholdSeconds: number;
   pages: Required<AuthPages>;
+  /** Whether debug logging is enabled. */
+  debug: boolean;
 }
 
 // ─── Client Session ───────────────────────────────────────────────────────────
@@ -150,6 +161,31 @@ export type ActionResult<TData> =
 
 export type SessionActionData = Session;
 
+/**
+ * Options accepted by the login Server Action.
+ * All fields are optional — login works with no options, defaulting to a
+ * redirect to `pages.afterSignIn`.
+ */
+export interface LoginActionOptions {
+  /**
+   * Whether to redirect after a successful login. Defaults to true.
+   * Set to false to handle navigation yourself on the client.
+   */
+  redirect?: boolean;
+  /**
+   * Explicit redirect destination after login. Takes priority over callbackUrl
+   * and pages.afterSignIn.
+   */
+  redirectTo?: string;
+  /**
+   * A relative path to redirect to after login — typically read from the
+   * `?callbackUrl=` search param set by requireSession().
+   * Must start with "/" to prevent open-redirect attacks; invalid values
+   * are silently ignored and fall back to pages.afterSignIn.
+   */
+  callbackUrl?: string;
+}
+
 /** The server actions object passed to <AuthProvider actions={...}>. */
 export type AuthActions = {
   login: typeof loginAction;
@@ -179,7 +215,7 @@ export const TokenPairSchema = z.object({
 
 export const TokenPayloadSchema = z.object({
   exp: z.number({
-    required_error: "JWT payload is missing the required `exp` claim",
+    error: "JWT payload is missing the required `exp` claim",
   }),
   iat: z.number().optional(),
   sub: z.string().optional(),
