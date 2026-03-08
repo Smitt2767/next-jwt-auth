@@ -16,7 +16,7 @@ const DEFAULT_COOKIE_OPTIONS = {
 const DEFAULT_PAGES: Required<AuthPages> = {
   signIn: "/login",
   afterSignIn: "/",
-  afterSignOut: "/",
+  afterSignOut: "/login",
 };
 
 const DEFAULT_REFRESH_THRESHOLD_SECONDS = 120;

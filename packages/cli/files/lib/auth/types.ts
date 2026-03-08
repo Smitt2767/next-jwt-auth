@@ -129,16 +129,28 @@ export interface ResolvedAuthConfig {
 
 // ─── Client Session ───────────────────────────────────────────────────────────
 
-export type SessionStatus = "authenticated" | "unauthenticated";
+export type SessionStatus = "loading" | "authenticated" | "unauthenticated";
 
 /**
  * The discriminated union returned by useSession().
  * Check session.status before accessing session.user / session.accessToken.
  *
- * Loading state is intentionally omitted — pass `initialSession` from your
- * root layout Server Component to hydrate state without a loading phase.
+ * - "loading"         — initial state when no `initialSession` prop was passed.
+ *                       The provider is fetching the session from the server on mount.
+ * - "authenticated"   — a valid session exists.
+ * - "unauthenticated" — no session. Either `initialSession={null}` was passed
+ *                       explicitly, or the mount fetch returned no session.
+ *
+ * To avoid the loading state entirely, pass `initialSession` from your root
+ * layout Server Component — the client will hydrate instantly with no fetch.
  */
 export type ClientSession =
+  | {
+      status: "loading";
+      user: null;
+      accessToken: null;
+      refreshToken: null;
+    }
   | {
       status: "authenticated";
       user: SessionUser;
