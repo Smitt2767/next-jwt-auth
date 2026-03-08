@@ -129,7 +129,8 @@ export const auth = Auth({
   // the middleware calls adapter.refreshToken() and writes new cookies.
 
   refresh: {
-    refreshThresholdSeconds: 120,  // default: 120 (refresh when < 2 min remain)
+    refreshThresholdSeconds: 0,    // default: 0 (only refresh when token is already expired)
+    // Set to e.g. 120 to refresh proactively when < 2 min remain on the access token.
   },
 
   // ── Pages (optional) ─────────────────────────────────────────────────────
@@ -470,7 +471,7 @@ lib/auth/
 | `cookies.name` | `string` | `"auth-session"` | Cookie base name |
 | `cookies.secure` | `boolean` | `true` in prod | Secure cookie flag |
 | `cookies.sameSite` | `string` | `"lax"` | SameSite cookie attribute |
-| `refresh.refreshThresholdSeconds` | `number` | `120` | Refresh when this many seconds remain |
+| `refresh.refreshThresholdSeconds` | `number` | `0` | Seconds before expiry to proactively refresh. `0` means refresh only when already expired |
 | `pages.signIn` | `string` | `"/login"` | Sign-in page path |
 | `pages.afterSignIn` | `string` | `"/"` | Post-login redirect |
 | `pages.afterSignOut` | `string` | `"/login"` | Post-logout redirect |

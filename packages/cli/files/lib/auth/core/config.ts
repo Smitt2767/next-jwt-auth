@@ -19,7 +19,7 @@ const DEFAULT_PAGES: Required<AuthPages> = {
   afterSignOut: "/login",
 };
 
-const DEFAULT_REFRESH_THRESHOLD_SECONDS = 120;
+const DEFAULT_REFRESH_THRESHOLD_SECONDS = 0;
 const DEFAULT_COOKIE_BASE_NAME = "auth-session";
 
 function resolveCookieNames(
