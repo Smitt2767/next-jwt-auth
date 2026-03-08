@@ -1,25 +1,27 @@
-# @ss/next-jwt-auth
+# @smittdev/next-jwt-auth
 
-Zero-config JWT authentication scaffolder for Next.js App Router.
+Zero-config JWT authentication scaffolder for Next.js App Router, specifically designed for integrating with **3rd-party backend APIs**.
 
 Run one command. Get a complete, production-ready auth system in your project — fully typed, fully yours.
 
 ```bash
-npx @ss/next-jwt-auth init
+npx @smittdev/next-jwt-auth init
 ```
 
 ---
 
-## Why Not Auth.js?
+## When to use this vs. Auth.js
 
-Auth.js (NextAuth) is excellent for OAuth providers — Google, GitHub, and friends. But if your backend issues its own JWTs and you just need to wire them into Next.js, Auth.js becomes the wrong tool:
+[Auth.js (NextAuth)](https://authjs.dev/) is an incredible library and the gold standard for OAuth integrations (Google, GitHub, Apple, etc.). If your Next.js application *is* your backend and you need OAuth, you should use Auth.js.
 
-- **Credentials provider is intentionally limited.** Auth.js discourages credentials-based auth and actively restricts what you can do with it (no access to the raw response, opinionated session shape, no refresh token support out of the box).
-- **You don't control the session.** Auth.js owns the session format. If your API returns a custom JWT with roles, expiry, or extra claims, you're fighting the library to expose them.
-- **Refresh tokens are not a first-class concept.** Auth.js has no built-in dual-token (access + refresh) strategy. Handling short-lived access tokens with silent refresh requires hacks.
-- **Magic and black boxes.** Auth.js abstracts away the cookie layer, the token layer, and the session layer. When something breaks, it's hard to know where to look.
+However, **if you have a separate backend (Node, Go, Python, Java, etc.) that handles authentication and issues its own JWTs**, wiring it into Next.js can be tricky. This library exists to solve that specific problem.
 
-This library takes the opposite approach: it scaffolds the plumbing into your project and gets out of the way. You implement three adapter functions, and you own everything from cookies to session shape. No lock-in, no magic, no fighting the framework.
+It bridges the gap between your Next.js frontend and your external API server by:
+- Managing the short-lived **access token** + long-lived **refresh token** lifecycle.
+- Silently refreshing tokens before they expire using Next.js Middleware.
+- Automatically synchronizing the user's session between Server Components and Client Components.
+
+Instead of fighting an opinionated session format, this library scaffolds the plumbing and gets out of your way. You implement three adapter functions (`login`, `refreshToken`, `fetchUser`) that fetch from your API, and you own the resulting session.
 
 ---
 
@@ -40,7 +42,7 @@ This is not an npm package you add as a dependency. It's a **code scaffolder** �
 ### 1. Scaffold
 
 ```bash
-npx @ss/next-jwt-auth init
+npx @smittdev/next-jwt-auth init
 ```
 
 You'll be asked:
@@ -199,7 +201,7 @@ That's it. Auth is ready.
 Scaffolds the auth library into your project. Detects your project setup (Next.js version, TypeScript, package manager, tsconfig alias) and runs interactively.
 
 ```bash
-npx @ss/next-jwt-auth init
+npx @smittdev/next-jwt-auth init
 ```
 
 ### `update`
@@ -207,10 +209,10 @@ npx @ss/next-jwt-auth init
 Updates the library files to the latest version without touching your `auth.ts` adapter implementation. Reports added, modified, and removed files.
 
 ```bash
-npx @ss/next-jwt-auth update
+npx @smittdev/next-jwt-auth update
 
 # Preview what would change without writing any files
-npx @ss/next-jwt-auth update --dry-run
+npx @smittdev/next-jwt-auth update --dry-run
 ```
 
 ### `check`
@@ -225,7 +227,7 @@ Validates your project setup. Runs six checks and reports pass/warn/fail for eac
 6. Import alias in `auth.ts` matches `tsconfig.json`
 
 ```bash
-npx @ss/next-jwt-auth check
+npx @smittdev/next-jwt-auth check
 ```
 
 Exits with code `1` if any check fails.
@@ -235,7 +237,7 @@ Exits with code `1` if any check fails.
 Removes the scaffolded auth files from your project. Interactively asks whether to delete the library directory, `auth.ts`, and `middleware.ts` / `proxy.ts` — so you can keep whatever you want.
 
 ```bash
-npx @ss/next-jwt-auth uninstall
+npx @smittdev/next-jwt-auth uninstall
 ```
 
 > `auth.ts` defaults to **no** when prompted — it contains your adapter implementation and is skipped unless you explicitly confirm.
@@ -243,8 +245,8 @@ npx @ss/next-jwt-auth uninstall
 ### `--version` / `--help`
 
 ```bash
-npx @ss/next-jwt-auth --version
-npx @ss/next-jwt-auth --help
+npx @smittdev/next-jwt-auth --version
+npx @smittdev/next-jwt-auth --help
 ```
 
 ---
