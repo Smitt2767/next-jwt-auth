@@ -137,9 +137,8 @@ export const auth = Auth({
   // Redirect targets used by requireSession(), loginAction(), and logoutAction().
 
   pages: {
-    signIn: "/login",              // default: "/login"  — requireSession() redirects here
-    afterSignIn: "/",              // default: "/"       — loginAction() redirects here
-    afterSignOut: "/login",        // default: "/login"  — logoutAction() redirects here
+    signIn: "/login",              // default: "/login"  — requireSession() + logoutAction() redirect here
+    home: "/",                     // default: "/"       — loginAction() redirects here
   },
 
   // ── Debug (optional) ─────────────────────────────────────────────────────
@@ -472,9 +471,8 @@ lib/auth/
 | `cookies.secure` | `boolean` | `true` in prod | Secure cookie flag |
 | `cookies.sameSite` | `string` | `"lax"` | SameSite cookie attribute |
 | `refresh.refreshThresholdSeconds` | `number` | `0` | Seconds before expiry to proactively refresh. `0` means refresh only when already expired |
-| `pages.signIn` | `string` | `"/login"` | Sign-in page path |
-| `pages.afterSignIn` | `string` | `"/"` | Post-login redirect |
-| `pages.afterSignOut` | `string` | `"/login"` | Post-logout redirect |
+| `pages.signIn` | `string` | `"/login"` | Sign-in page — used by `requireSession()` and post-logout redirect |
+| `pages.home` | `string` | `"/"` | Post-login redirect |
 | `debug` | `boolean` | `false` | Log debug info to console |
 
 ### Server Helpers

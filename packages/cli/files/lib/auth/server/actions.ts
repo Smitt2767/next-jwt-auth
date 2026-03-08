@@ -42,7 +42,7 @@ function isNextRedirectError(error: unknown): boolean {
  * Validates a callbackUrl to prevent open-redirect attacks.
  * Only root-relative paths (starting with "/" but not "//") are allowed.
  * Any other value — absolute URLs, protocol-relative URLs, empty strings —
- * is rejected and returns undefined, falling back to pages.afterSignIn.
+ * is rejected and returns undefined, falling back to pages.home.
  */
 function sanitizeCallbackUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
@@ -137,13 +137,13 @@ export async function fetchSessionAction(): Promise<
  *   1. `options.redirectTo`  — explicit override, always wins
  *   2. `options.callbackUrl` — typically the `?callbackUrl=` param set by
  *      requireSession(); validated to prevent open-redirect attacks
- *   3. `config.pages.afterSignIn` — the configured default
+ *   3. `config.pages.home` — the configured default
  *
  * Set `redirect: false` to disable the automatic redirect and handle
  * navigation yourself on the client based on the returned ActionResult.
  *
  * @example
- * // Default — redirect to afterSignIn
+ * // Default — redirect to pages.home
  * await loginAction({ email, password });
  *
  * // Honour the callbackUrl from the URL search params
@@ -194,7 +194,7 @@ export async function loginAction(
       const destination =
         redirectTo ??
         sanitizeCallbackUrl(callbackUrl) ??
-        config.pages.afterSignIn;
+        config.pages.home;
 
       debugLog("loginAction: redirecting", { destination });
       // redirect() throws internally — this line never returns
@@ -222,7 +222,7 @@ export async function loginAction(
  * Logs the user out.
  *
  * By default (`redirect: true`) clears cookies and redirects to `redirectTo`
- * or `pages.afterSignOut` — matching next-auth behaviour.
+ * or `pages.signIn` — matching next-auth behaviour.
  *
  * Set `redirect: false` to disable the automatic redirect and handle
  * navigation yourself on the client based on the returned ActionResult.
@@ -286,7 +286,7 @@ export async function logoutAction(
   }
 
   if (shouldRedirect) {
-    const destination = redirectTo ?? config.pages.afterSignOut;
+    const destination = redirectTo ?? config.pages.signIn;
     debugLog("logoutAction: redirecting", { destination });
     // redirect() is called outside try/catch so it is never swallowed
     redirect(destination);

@@ -79,12 +79,10 @@ export interface RefreshOptions {
 }
 
 export interface AuthPages {
-  /** The sign-in page path. Defaults to "/login". */
+  /** The sign-in page path. Defaults to "/login". Also used as the post-logout redirect. */
   signIn?: string;
   /** Where to redirect after successful login. Defaults to "/". */
-  afterSignIn?: string;
-  /** Where to redirect after logout. Defaults to "/". */
-  afterSignOut?: string;
+  home?: string;
 }
 
 export interface AuthConfig {
@@ -171,7 +169,7 @@ export type SessionActionData = Session;
 /**
  * Options accepted by the login Server Action.
  * All fields are optional — login works with no options, defaulting to a
- * redirect to `pages.afterSignIn`.
+ * redirect to `pages.home`.
  */
 export interface LoginActionOptions {
   /**
@@ -181,14 +179,14 @@ export interface LoginActionOptions {
   redirect?: boolean;
   /**
    * Explicit redirect destination after login. Takes priority over callbackUrl
-   * and pages.afterSignIn.
+   * and pages.home.
    */
   redirectTo?: string;
   /**
    * A relative path to redirect to after login — typically read from the
    * `?callbackUrl=` search param set by requireSession().
    * Must start with "/" to prevent open-redirect attacks; invalid values
-   * are silently ignored and fall back to pages.afterSignIn.
+   * are silently ignored and fall back to pages.home.
    */
   callbackUrl?: string;
 }

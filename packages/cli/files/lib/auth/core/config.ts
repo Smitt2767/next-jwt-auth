@@ -15,8 +15,7 @@ const DEFAULT_COOKIE_OPTIONS = {
 
 const DEFAULT_PAGES: Required<AuthPages> = {
   signIn: "/login",
-  afterSignIn: "/",
-  afterSignOut: "/login",
+  home: "/",
 };
 
 const DEFAULT_REFRESH_THRESHOLD_SECONDS = 0;
@@ -51,8 +50,7 @@ export function createAuthConfig(config: AuthConfig): ResolvedAuthConfig {
       DEFAULT_REFRESH_THRESHOLD_SECONDS,
     pages: {
       signIn: config.pages?.signIn ?? DEFAULT_PAGES.signIn,
-      afterSignIn: config.pages?.afterSignIn ?? DEFAULT_PAGES.afterSignIn,
-      afterSignOut: config.pages?.afterSignOut ?? DEFAULT_PAGES.afterSignOut,
+      home: config.pages?.home ?? DEFAULT_PAGES.home,
     },
     debug: config.debug ?? false,
   };
