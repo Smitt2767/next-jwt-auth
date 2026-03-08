@@ -75,7 +75,7 @@ function diffSnapshots(
 }
 
 /**
- * `npx @ss/next-jwt-auth update`
+ * `npx @ss/next-jwt-auth update [--dry-run]`
  *
  * Updates the scaffolded library files to the latest bundled templates.
  * auth.ts is NEVER overwritten — it contains your adapter implementation.
@@ -86,10 +86,16 @@ function diffSnapshots(
  *   3. Take a snapshot of the current files.
  *   4. Copy the new templates over the existing directory.
  *   5. Report what changed (added / modified / removed).
+ *
+ * With --dry-run: shows what would change without writing any files.
  */
-export async function update(): Promise<void> {
+export async function update(dryRun = false): Promise<void> {
   logger.banner();
-  logger.info("Updating scaffolded library files...");
+  if (dryRun) {
+    logger.info("Dry run — no files will be written.");
+  } else {
+    logger.info("Updating scaffolded library files...");
+  }
   logger.break();
 
   // ── 1. Find the existing install ──────────────────────────────────
@@ -110,17 +116,19 @@ export async function update(): Promise<void> {
     logger.info(`Found existing installation at: ${pc.cyan(detected + "/")}`);
     logger.break();
 
-    const { confirm } = await prompts({
-      type: "confirm",
-      name: "confirm",
-      message: `Update files in ${pc.cyan(detected + "/")}?`,
-      initial: true,
-    });
+    if (!dryRun) {
+      const { confirm } = await prompts({
+        type: "confirm",
+        name: "confirm",
+        message: `Update files in ${pc.cyan(detected + "/")}?`,
+        initial: true,
+      });
 
-    if (!confirm) {
-      logger.break();
-      logger.error("Update cancelled.");
-      process.exit(0);
+      if (!confirm) {
+        logger.break();
+        logger.error("Update cancelled.");
+        process.exit(0);
+      }
     }
 
     authDir = detected;
@@ -169,45 +177,58 @@ export async function update(): Promise<void> {
     ? fs.readFileSync(versionFilePath, "utf-8").trim()
     : null;
 
-  // Make a temporary copy of the current state for diffing
-  const tempDir = path.join(
-    require("os").tmpdir(),
-    `next-jwt-auth-backup-${Date.now()}`,
-  );
-  await fs.copy(destDir, tempDir, { overwrite: true });
+  // Source dir is the bundled template — same path copyLibraryFiles uses
+  const sourceDir = path.join(__dirname, "files", "lib", "auth");
 
-  // ── 3. Copy new files ─────────────────────────────────────────────
-  logger.step("Copying updated library files...");
+  let added: string[], removed: string[], modified: string[];
 
-  try {
-    await copyLibraryFiles(authDir);
-  } catch (error) {
-    // Restore original files if copy fails
-    await fs.copy(tempDir, destDir, { overwrite: true });
-    await fs.remove(tempDir);
-    logger.error(
-      `Update failed — original files restored.\n    ${error instanceof Error ? error.message : String(error)}`,
+  if (dryRun) {
+    // ── Dry run: diff source against dest without writing anything ────
+    ({ added, removed, modified } = diffSnapshots(destDir, sourceDir, beforeFiles));
+  } else {
+    // ── 3. Copy new files ─────────────────────────────────────────────
+    logger.step("Copying updated library files...");
+
+    // Make a temporary copy of the current state for diffing
+    const tempDir = path.join(
+      require("os").tmpdir(),
+      `next-jwt-auth-backup-${Date.now()}`,
     );
-    process.exit(1);
+    await fs.copy(destDir, tempDir, { overwrite: true });
+
+    try {
+      await copyLibraryFiles(authDir);
+    } catch (error) {
+      // Restore original files if copy fails
+      await fs.copy(tempDir, destDir, { overwrite: true });
+      await fs.remove(tempDir);
+      logger.error(
+        `Update failed — original files restored.\n    ${error instanceof Error ? error.message : String(error)}`,
+      );
+      process.exit(1);
+    }
+
+    // ── 4. Report changes ─────────────────────────────────────────────
+    ({ added, removed, modified } = diffSnapshots(tempDir, destDir, beforeFiles));
+
+    // Clean up temp dir
+    await fs.remove(tempDir);
   }
 
-  // ── 4. Report changes ─────────────────────────────────────────────
-  const { added, removed, modified } = diffSnapshots(
-    tempDir,
-    destDir,
-    beforeFiles,
-  );
-
-  // Clean up temp dir
-  await fs.remove(tempDir);
-
-  // Read the newly written version
-  const newVersion = fs.existsSync(versionFilePath)
-    ? fs.readFileSync(versionFilePath, "utf-8").trim()
+  // Read the new version (from source in dry run, from dest after real update)
+  const newVersionFile = dryRun
+    ? path.join(sourceDir, ".version")
+    : versionFilePath;
+  const newVersion = fs.existsSync(newVersionFile)
+    ? fs.readFileSync(newVersionFile, "utf-8").trim()
     : null;
 
   logger.break();
-  logger.success("Library files updated!");
+  if (dryRun) {
+    logger.info("Dry run complete — no files were modified.");
+  } else {
+    logger.success("Library files updated!");
+  }
   if (installedVersion && newVersion && installedVersion !== newVersion) {
     logger.dim(`Version: ${pc.yellow(installedVersion)} → ${pc.green(newVersion)}`);
   } else if (newVersion) {
@@ -218,20 +239,24 @@ export async function update(): Promise<void> {
   const totalChanges = added.length + removed.length + modified.length;
 
   if (totalChanges === 0) {
-    logger.dim("No file changes — you were already on the latest version.");
+    logger.dim(
+      dryRun
+        ? "No file changes — already up to date."
+        : "No file changes — you were already on the latest version.",
+    );
   } else {
     if (modified.length > 0) {
-      console.log(pc.bold("  Updated:"));
+      console.log(pc.bold(dryRun ? "  Would update:" : "  Updated:"));
       modified.forEach((f) => logger.dim(`${pc.yellow("~")} ${f}`));
       logger.break();
     }
     if (added.length > 0) {
-      console.log(pc.bold("  Added:"));
+      console.log(pc.bold(dryRun ? "  Would add:" : "  Added:"));
       added.forEach((f) => logger.dim(`${pc.green("+")} ${f}`));
       logger.break();
     }
     if (removed.length > 0) {
-      console.log(pc.bold("  Removed:"));
+      console.log(pc.bold(dryRun ? "  Would remove:" : "  Removed:"));
       removed.forEach((f) => logger.dim(`${pc.red("-")} ${f}`));
       logger.break();
     }
@@ -240,7 +265,7 @@ export async function update(): Promise<void> {
   // ── 5. Alias reminder ─────────────────────────────────────────────
   // auth.ts is always preserved — remind the user it was not touched
   const authTsPath = project.srcDir ? "src/auth.ts" : "auth.ts";
-  if (fileExists(resolveCwd(authTsPath))) {
+  if (!dryRun && fileExists(resolveCwd(authTsPath))) {
     logger.dim(
       `${pc.green("✔")} ${authTsPath} preserved — your adapter was not modified.`,
     );

@@ -208,6 +208,9 @@ Updates the library files to the latest version without touching your `auth.ts` 
 
 ```bash
 npx @ss/next-jwt-auth update
+
+# Preview what would change without writing any files
+npx @ss/next-jwt-auth update --dry-run
 ```
 
 ### `check`

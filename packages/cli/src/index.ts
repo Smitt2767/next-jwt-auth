@@ -12,7 +12,8 @@ async function main() {
   if (!command || command === "init") {
     await init();
   } else if (command === "update") {
-    await update();
+    const dryRun = args.includes("--dry-run");
+    await update(dryRun);
   } else if (command === "check") {
     await check();
   } else if (command === "--help" || command === "-h") {
@@ -26,7 +27,10 @@ async function main() {
       "    npx @ss/next-jwt-auth init      Scaffold auth into your project",
     );
     console.log(
-      "    npx @ss/next-jwt-auth update    Update library files to the latest version",
+      "    npx @ss/next-jwt-auth update             Update library files to the latest version",
+    );
+    console.log(
+      "    npx @ss/next-jwt-auth update --dry-run   Preview changes without writing any files",
     );
     console.log(
       "    npx @ss/next-jwt-auth check     Validate your project setup (exits with code 1 on failure)",
