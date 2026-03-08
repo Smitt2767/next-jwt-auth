@@ -171,12 +171,6 @@ export async function update(dryRun = false): Promise<void> {
   const destDir = resolveCwd(authDir);
   const beforeFiles = listFilesRecursive(destDir);
 
-  // Read installed version from .version file if present
-  const versionFilePath = path.join(destDir, ".version");
-  const installedVersion = fs.existsSync(versionFilePath)
-    ? fs.readFileSync(versionFilePath, "utf-8").trim()
-    : null;
-
   // Source dir is the bundled template — same path copyLibraryFiles uses
   const sourceDir = path.join(__dirname, "files", "lib", "auth");
 
@@ -215,24 +209,11 @@ export async function update(dryRun = false): Promise<void> {
     await fs.remove(tempDir);
   }
 
-  // Read the new version (from source in dry run, from dest after real update)
-  const newVersionFile = dryRun
-    ? path.join(sourceDir, ".version")
-    : versionFilePath;
-  const newVersion = fs.existsSync(newVersionFile)
-    ? fs.readFileSync(newVersionFile, "utf-8").trim()
-    : null;
-
   logger.break();
   if (dryRun) {
     logger.info("Dry run complete — no files were modified.");
   } else {
     logger.success("Library files updated!");
-  }
-  if (installedVersion && newVersion && installedVersion !== newVersion) {
-    logger.dim(`Version: ${pc.yellow(installedVersion)} → ${pc.green(newVersion)}`);
-  } else if (newVersion) {
-    logger.dim(`Version: ${pc.green(newVersion)}`);
   }
   logger.break();
 

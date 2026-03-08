@@ -21,10 +21,5 @@ export async function copyLibraryFiles(targetDir: string): Promise<void> {
   await fs.ensureDir(destDir);
   await fs.copy(sourceDir, destDir, { overwrite: true });
 
-  // Write a .version file so users can always tell which lib version is installed.
-  // Version comes from the root monorepo package.json, injected at build time.
-  // Used by the `update` command to show version changes.
-  await fs.writeFile(path.join(destDir, ".version"), __LIB_VERSION__, "utf-8");
-
   logger.success(`Library files copied to ${targetDir}/`);
 }
