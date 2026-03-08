@@ -24,8 +24,6 @@ export function installDeps(
     execSync(cmd, { stdio: "inherit", cwd: process.cwd() });
     logger.success(`Installed: ${packages.join(", ")}`);
   } catch {
-    logger.error(
-      `Auto-install failed. Run this manually:\n\n    ${cmd}\n`,
-    );
+    logger.error(`Auto-install failed. Run this manually:\n\n    ${cmd}\n`);
   }
 }

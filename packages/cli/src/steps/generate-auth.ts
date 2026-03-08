@@ -6,16 +6,18 @@ import { logger } from "../utils/logger";
 /**
  * Generates the user-facing auth.ts file.
  *
- * - With root layout:  written to  <root>/auth.ts,  imports from "@/lib/auth"
- * - With src/ layout:  written to  <root>/src/auth.ts, imports from "@/lib/auth"
- *   (because Next.js maps "@/" → "./src/", so the "src/" prefix is stripped)
+ * - With root layout:  written to  <root>/auth.ts
+ * - With src/ layout:  written to  <root>/src/auth.ts
+ *   (Next.js maps "@/" → "./src/", so the "src/" prefix is stripped from the import)
  *
- * @param authDir - The path where the library was installed (e.g. "lib/auth" or "src/lib/auth")
- * @param srcDir  - True if the project uses a src/ directory layout
+ * @param authDir  - The path where the library was installed (e.g. "lib/auth" or "src/lib/auth")
+ * @param srcDir   - True if the project uses a src/ directory layout
+ * @param alias    - The tsconfig import alias prefix (e.g. "@/" or "~/"). Defaults to "@/".
  */
 export async function generateAuthFile(
   authDir: string,
   srcDir: boolean,
+  alias: string = "@/",
 ): Promise<void> {
   // Strip the leading "src/" from the import path because Next.js tsconfig
   // maps "@/*" → "./src/*", so "@/lib/auth" already resolves to "src/lib/auth".
@@ -23,7 +25,7 @@ export async function generateAuthFile(
     srcDir && authDir.startsWith("src/")
       ? authDir.slice("src/".length)
       : authDir;
-  const importPath = `@/${importSegment}`;
+  const importPath = `${alias}${importSegment}`;
 
   // auth.ts lives at the root in both layouts, BUT with src/ layout
   // Next.js resolves "@/auth" → "src/auth.ts", so we write it there.
@@ -126,6 +128,9 @@ export const auth = Auth({
   /**
    * All configuration below is optional — defaults shown.
    */
+
+  // Enable verbose debug logging in development
+  // debug: process.env.NODE_ENV === "development",
 
   // cookies: {
   //   name: "auth-session",          // Generates "auth-session.access" + "auth-session.refresh" cookies

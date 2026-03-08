@@ -1,5 +1,7 @@
 import { fileExists, dirExists, readJson, resolveCwd } from "../utils/fs";
 
+// ─── Version parsing ──────────────────────────────────────────────────────────
+
 /** Parses the major version number from a semver string like "^15.0.0" → 15 */
 export function parseMajorVersion(versionStr: string | null): number {
   if (!versionStr) return 0;
@@ -7,6 +9,8 @@ export function parseMajorVersion(versionStr: string | null): number {
   const major = parseInt(cleaned.split(".")[0], 10);
   return isNaN(major) ? 0 : major;
 }
+
+// ─── Project detection ────────────────────────────────────────────────────────
 
 export interface ProjectInfo {
   /** Whether a package.json was found in cwd */
@@ -104,4 +108,86 @@ export function detectConflicts(
     authTsExists: fileExists(authTsPath),
     middlewareExists: fileExists(middlewarePath),
   };
+}
+
+// ─── tsconfig alias detection ─────────────────────────────────────────────────
+
+/**
+ * Reads tsconfig.json and returns the import alias prefix configured for the
+ * project (e.g. "@/", "~/", "#/").
+ *
+ * Strategy:
+ *   1. Read compilerOptions.paths from tsconfig.json (and tsconfig.*.json if extended).
+ *   2. Find the first path alias whose value maps to "./*" or "./src/*".
+ *   3. Strip the trailing "*" from the alias key to get the prefix.
+ *   4. Fall back to "@/" if nothing is found — this covers the Next.js default.
+ *
+ * @example
+ * // tsconfig.json paths: { "@/*": ["./src/*"] }  →  "@/"
+ * // tsconfig.json paths: { "~/*": ["./*"] }       →  "~/"
+ * // no paths configured                           →  "@/"
+ */
+export function detectTsConfigAlias(): string {
+  const tsconfigPath = resolveCwd("tsconfig.json");
+  if (!fileExists(tsconfigPath)) return "@/";
+
+  const tsconfig = readJson(tsconfigPath);
+  if (!tsconfig) return "@/";
+
+  const paths = (tsconfig?.compilerOptions as Record<string, unknown>)
+    ?.paths as Record<string, string[]> | undefined;
+
+  if (!paths || typeof paths !== "object") return "@/";
+
+  // Target mappings that indicate a root-level path alias
+  const rootMappings = ["./*", "./src/*", "src/*"];
+
+  for (const [aliasPattern, targets] of Object.entries(paths)) {
+    if (!Array.isArray(targets)) continue;
+
+    const mapsToRoot = targets.some((t) => rootMappings.includes(t));
+    if (!mapsToRoot) continue;
+
+    // aliasPattern is something like "@/*" or "~/*" — strip the trailing "*"
+    if (aliasPattern.endsWith("*")) {
+      return aliasPattern.slice(0, -1); // "@/*" → "@/"
+    }
+  }
+
+  return "@/";
+}
+
+// ─── Existing install detection ───────────────────────────────────────────────
+
+/**
+ * Attempts to find an existing next-jwt-auth installation in the project by
+ * looking for known marker files in common locations.
+ *
+ * Returns the directory path relative to cwd (e.g. "lib/auth" or "src/lib/auth"),
+ * or null if no existing installation is found.
+ *
+ * Used by the `update` command to auto-detect the install location so the user
+ * doesn't have to remember where they put it.
+ */
+export function detectExistingAuthDir(): string | null {
+  // These are the marker files we look for — if any of them exist inside a
+  // candidate directory, we treat that directory as the install location.
+  const markerFile = "index.ts";
+
+  const candidates = [
+    "lib/auth",
+    "src/lib/auth",
+    "app/lib/auth",
+    "src/app/lib/auth",
+    "auth",
+    "src/auth",
+  ];
+
+  for (const candidate of candidates) {
+    if (fileExists(resolveCwd(candidate, markerFile))) {
+      return candidate;
+    }
+  }
+
+  return null;
 }

@@ -3,6 +3,7 @@ import pc from "picocolors";
 import {
   detectProject,
   detectConflicts,
+  detectTsConfigAlias,
   parseMajorVersion,
 } from "../steps/detect";
 import { copyLibraryFiles } from "../steps/copy-files";
@@ -44,6 +45,9 @@ export async function init(): Promise<void> {
   const nextMajor = parseMajorVersion(project.nextVersion);
   const middlewareFileName = nextMajor >= 16 ? "proxy.ts" : "middleware.ts";
 
+  // Detect the tsconfig path alias (e.g. "@/", "~/")
+  const alias = detectTsConfigAlias();
+
   if (project.hasNext) {
     const version = project.nextVersion
       ? pc.gray(`(${project.nextVersion})`)
@@ -55,6 +59,9 @@ export async function init(): Promise<void> {
         `${project.srcDir ? pc.cyan("src/ layout") : "root layout"}`,
     );
     logger.dim(`Package manager: ${project.packageManager}`);
+    logger.dim(
+      `Import alias:     ${alias}  ${alias !== "@/" ? pc.yellow("(custom — detected from tsconfig.json)") : pc.gray("(default)")} `,
+    );
     if (nextMajor >= 16) {
       logger.dim(
         `Next.js >= 16 detected — will generate proxy.ts instead of middleware.ts`,
@@ -163,11 +170,11 @@ export async function init(): Promise<void> {
   await copyLibraryFiles(answers.authDir as string);
 
   if (!answers.skipAuthTs) {
-    await generateAuthFile(answers.authDir as string, project.srcDir);
+    await generateAuthFile(answers.authDir as string, project.srcDir, alias);
   }
 
   if (answers.generateMiddleware) {
-    await generateMiddlewareFile(project.srcDir, project.nextVersion);
+    await generateMiddlewareFile(project.srcDir, project.nextVersion, alias);
   }
 
   if (answers.installZod) {

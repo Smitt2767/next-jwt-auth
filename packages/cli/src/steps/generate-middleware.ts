@@ -19,13 +19,17 @@ function parseMajorVersion(versionStr: string | null): number {
  *
  * - Placed in `src/` if the project uses a src directory layout.
  * - Named `proxy.ts` for Next.js >= 16, `middleware.ts` otherwise.
- *   (Next.js 16 introduced proxy.ts as the new middleware entrypoint.)
  * - Route protection logic is intentionally left as comments — the user
  *   decides what is public and what is protected.
+ *
+ * @param srcDir      - True if the project uses a src/ directory layout
+ * @param nextVersion - Raw next version string from package.json
+ * @param alias       - The tsconfig import alias prefix (e.g. "@/" or "~/"). Defaults to "@/".
  */
 export async function generateMiddlewareFile(
   srcDir: boolean,
   nextVersion: string | null,
+  alias: string = "@/",
 ): Promise<{ fileName: string; filePath: string }> {
   const majorVersion = parseMajorVersion(nextVersion);
   // Next.js 16+ uses proxy.ts as the middleware entrypoint
@@ -37,8 +41,12 @@ export async function generateMiddlewareFile(
 
   await fs.ensureDir(fileDir);
 
+  // For src/ layouts the alias already resolves into src/, so we use e.g. "@/auth".
+  // For root layouts without src/, we use the alias too since tsconfig maps it to "./*".
+  const authImport = srcDir ? `${alias}auth` : `./auth`;
+
   const content = `import { NextRequest, NextResponse } from "next/server";
-import { auth } from "${srcDir ? "@/auth" : "./auth"}";
+import { auth } from "${authImport}";
 
 /**
  * ${fileName} — Route protection via @ss/next-jwt-auth
