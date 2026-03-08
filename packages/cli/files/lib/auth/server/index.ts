@@ -14,8 +14,4 @@ export {
   refreshSessionAction,
 } from "./actions";
 
-export {
-  withSession,
-  withRequiredSession,
-  createSessionFetcher,
-} from "./fetchers";
+export { withSession, withRequiredSession } from "./fetchers";

@@ -16,11 +16,7 @@ import {
   getRefreshToken,
   requireSession,
 } from "./server/session";
-import {
-  withSession,
-  withRequiredSession,
-  createSessionFetcher,
-} from "./server/fetchers";
+import { withSession, withRequiredSession } from "./server/fetchers";
 import {
   createAuthMiddleware,
   matchesPath,
@@ -77,9 +73,6 @@ export function Auth(config: AuthConfig) {
     withSession,
     /** Run a callback with the session, or redirect to sign-in. */
     withRequiredSession,
-    /** Create a reusable data-fetcher that receives the session automatically. */
-    createSessionFetcher,
-
     // ── Middleware ─────────────────────────────────────────────────────────
     /** Returns a middleware resolver function for use in middleware.ts. */
     createMiddleware: () => createAuthMiddleware(),
