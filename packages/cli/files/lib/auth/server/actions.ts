@@ -295,3 +295,58 @@ export async function logoutAction(
   return { success: true, data: null };
 }
 
+/**
+ * Updates the session's access token manually.
+ *
+ * This is useful when the user is handling token refreshes on the client side
+ * via an Axios interceptor (or similar) instead of relying on the Next.js middleware.
+ * If the user's external API returns a new access token, they can call this action
+ * to sync it into the HttpOnly cookies so Server Components can see it.
+ */
+export async function updateSessionTokenAction(
+  newAccessToken: string,
+): Promise<ActionResult<SessionActionData>> {
+  debugLog("updateSessionTokenAction: called");
+
+  if (!newAccessToken || typeof newAccessToken !== "string") {
+    return { success: false, error: "Invalid access token provided." };
+  }
+
+  try {
+    const config = getGlobalAuthConfig();
+    const tokens = await getTokensFromCookies(config);
+
+    if (!tokens) {
+      return { success: false, error: "No active session to update." };
+    }
+
+    const newTokens = {
+      accessToken: newAccessToken,
+      refreshToken: tokens.refreshToken,
+    };
+
+    const validated = validateTokenPair(newTokens);
+    await setTokenCookies(validated, config);
+    const user = await config.adapter.fetchUser(validated.accessToken);
+
+    debugLog("updateSessionTokenAction: session token updated", { userId: user.id });
+
+    return {
+      success: true,
+      data: {
+        accessToken: validated.accessToken,
+        refreshToken: validated.refreshToken,
+        user,
+      },
+    };
+  } catch (error) {
+    debugLog("updateSessionTokenAction: unexpected error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      success: false,
+      error: extractErrorMessage(error, "Failed to update session token."),
+    };
+  }
+}
+

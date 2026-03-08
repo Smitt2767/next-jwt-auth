@@ -324,7 +324,7 @@ await login(credentials, { redirectTo: "/onboarding" });
 
 The generated `middleware.ts` (or `proxy.ts` on Next.js 16+) runs on the edge before every request. Use it for **token refresh and coarse-grained routing** — it is not a replacement for per-page auth checks.
 
-> **Important:** `resolveAuth` reads token cookies only — it never calls your API or fetches user data. This keeps middleware fast and edge-compatible. It means `session.isAuthenticated` tells you whether a valid, non-expired access token exists in the cookie, not whether the user still exists or has a specific role. For fine-grained authorization (role checks, resource ownership, etc.) always call `auth.getSession()` or `auth.requireSession()` inside the Server Component or Server Action that needs it.
+> **Important Limitation:** The Next.js middleware *only* runs when a page navigation happens or when users explicitly refresh the page. This library will silently refresh expired tokens dynamically *during those requests*. **However**, if you have long-lived client-side pages and make API requests with `axios` or `fetch`, the middleware will NOT run for those API requests. You must handle silent refreshes for client-side API calls inside an interceptor and then call `updateSessionToken(newToken)` to sync the new token into the cookies so the rest of the app can see it.
 
 ```typescript
 // middleware.ts
@@ -531,7 +531,7 @@ lib/auth/
 | Hook | Returns | Description |
 |------|---------|-------------|
 | `useSession()` | `ClientSession` | Reactive session state (`"loading"` / `"authenticated"` / `"unauthenticated"`) |
-| `useAuth()` | `{ login, logout, fetchSession }` | Auth action handlers. `fetchSession` syncs client state — silently rotates tokens if expired before returning |
+| `useAuth()` | `{ login, logout, fetchSession, updateSessionToken }` | Auth action handlers. `fetchSession` syncs client state — silently rotates tokens if expired before returning. `updateSessionToken` allows injecting a new accessToken from outside the library (e.g. via an axios interceptor) and syncing it into the cookies. |
 
 ### `<AuthProvider>` Props
 

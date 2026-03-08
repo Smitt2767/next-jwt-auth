@@ -31,6 +31,8 @@ export interface AuthActions {
   }): Promise<ActionResult<null>>;
   /** Syncs client session state. Silently rotates tokens if expired before returning. */
   fetchSession(): Promise<ActionResult<SessionActionData | null>>;
+  /** Manually update the access token stored in the HTTP-only cookie */
+  updateSessionToken(newAccessToken: string): Promise<ActionResult<SessionActionData>>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -40,6 +42,7 @@ interface AuthContextValue {
   login: AuthActions["login"];
   logout: AuthActions["logout"];
   fetchSession: AuthActions["fetchSession"];
+  updateSessionToken: AuthActions["updateSessionToken"];
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -187,10 +190,11 @@ export function AuthProvider({
     !actions ||
     typeof actions.login !== "function" ||
     typeof actions.logout !== "function" ||
-    typeof actions.fetchSession !== "function"
+    typeof actions.fetchSession !== "function" ||
+    typeof actions.updateSessionToken !== "function"
   ) {
     throw new Error(
-      "[next-jwt-auth] <AuthProvider> requires an `actions` prop with login, logout, and fetchSession.\n" +
+      "[next-jwt-auth] <AuthProvider> requires an `actions` prop with login, logout, fetchSession, and updateSessionToken.\n" +
         "Pass `actions={auth.actions}` from your auth.ts export.\n" +
         "Example: <AuthProvider actions={auth.actions}>",
     );
@@ -329,9 +333,21 @@ export function AuthProvider({
     return result;
   }, [actions]);
 
+  const updateSessionToken = useCallback<AuthActions["updateSessionToken"]>(
+    async (newAccessToken) => {
+      const result = await actions.updateSessionToken(newAccessToken);
+      if (result.success) {
+        setSession(buildAuthenticatedState(result.data));
+        router.refresh(); // Refresh Server Components so they get the new token
+      }
+      return result;
+    },
+    [actions, router],
+  );
+
   const contextValue = useMemo<AuthContextValue>(
-    () => ({ session, login, logout, fetchSession }),
-    [session, login, logout, fetchSession],
+    () => ({ session, login, logout, fetchSession, updateSessionToken }),
+    [session, login, logout, fetchSession, updateSessionToken],
   );
 
   return (
@@ -403,5 +419,6 @@ export function useAuth() {
     login: ctx.login,
     logout: ctx.logout,
     fetchSession: ctx.fetchSession,
+    updateSessionToken: ctx.updateSessionToken,
   };
 }

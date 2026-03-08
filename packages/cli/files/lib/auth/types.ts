@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { fetchSessionAction, loginAction, logoutAction } from "./server";
+import type { fetchSessionAction, loginAction, logoutAction, updateSessionTokenAction } from "./server/actions";
 
 // ─── Core Domain Types ────────────────────────────────────────────────────────
 
@@ -196,6 +196,7 @@ export type AuthActions = {
   login: typeof loginAction;
   logout: typeof logoutAction;
   fetchSession: typeof fetchSessionAction;
+  updateSessionToken: typeof updateSessionTokenAction;
 };
 
 // ─── Zod Schemas (runtime validation) ────────────────────────────────────────
