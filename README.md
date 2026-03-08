@@ -447,6 +447,7 @@ After running `init`, your project will have:
 auth.ts                        ← Your adapter + config (edit this)
 middleware.ts                  ← Route protection (edit this; proxy.ts on Next.js 16+)
 lib/auth/
+  .version                     ← Installed CLI version (do not edit — used by `update`)
   index.ts                     ← Auth() factory + all public exports
   types.ts                     ← All TypeScript types
   config.ts                    ← Global config singleton (internal)

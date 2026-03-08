@@ -163,6 +163,12 @@ export async function update(): Promise<void> {
   const destDir = resolveCwd(authDir);
   const beforeFiles = listFilesRecursive(destDir);
 
+  // Read installed version from .version file if present
+  const versionFilePath = path.join(destDir, ".version");
+  const installedVersion = fs.existsSync(versionFilePath)
+    ? fs.readFileSync(versionFilePath, "utf-8").trim()
+    : null;
+
   // Make a temporary copy of the current state for diffing
   const tempDir = path.join(
     require("os").tmpdir(),
@@ -195,8 +201,18 @@ export async function update(): Promise<void> {
   // Clean up temp dir
   await fs.remove(tempDir);
 
+  // Read the newly written version
+  const newVersion = fs.existsSync(versionFilePath)
+    ? fs.readFileSync(versionFilePath, "utf-8").trim()
+    : null;
+
   logger.break();
   logger.success("Library files updated!");
+  if (installedVersion && newVersion && installedVersion !== newVersion) {
+    logger.dim(`Version: ${pc.yellow(installedVersion)} → ${pc.green(newVersion)}`);
+  } else if (newVersion) {
+    logger.dim(`Version: ${pc.green(newVersion)}`);
+  }
   logger.break();
 
   const totalChanges = added.length + removed.length + modified.length;
