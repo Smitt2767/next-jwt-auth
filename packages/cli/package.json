@@ -1,6 +1,6 @@
 {
   "name": "@smittdev/next-jwt-auth",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zero-config JWT authentication scaffolder for Next.js App Router",
   "keywords": [
     "next.js",
@@ -12,11 +12,15 @@
   ],
   "author": "ss",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smitt2767/next-jwt-auth.git"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "bin": {
-    "next-jwt-auth": "./dist/index.js"
+    "next-jwt-auth": "dist/index.js"
   },
   "files": [
     "dist"
