@@ -193,7 +193,7 @@ import { useSession, useAuth } from "@/lib/auth/client";
 
 function MyComponent() {
   const session = useSession();
-  const { login, logout, refresh, revalidateSession, isLoading } = useAuth();
+  const { login, logout, fetchSession } = useAuth();
 
   if (session.status === "loading") return <Spinner />;
   if (session.status === "unauthenticated") return <LoginButton />;
@@ -211,7 +211,7 @@ import { useAuth } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 
 export function LoginForm() {
-  const { login, isLoading } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
 
   async function handleSubmit(e) {
@@ -400,7 +400,7 @@ lib/auth/
     config.ts                  ← Config builder + defaults
   server/
     session.ts                 ← getSession(), requireSession(), etc.
-    actions.ts                 ← Server Actions (login, logout, refresh, fetchSession)
+    actions.ts                 ← Server Actions (login, logout, fetchSession)
     fetchers.ts                ← withSession(), withRequiredSession()
   middleware/
     auth-middleware.ts         ← Middleware resolver + matchesPath()
@@ -460,7 +460,7 @@ lib/auth/
 | Hook | Returns | Description |
 |------|---------|-------------|
 | `useSession()` | `ClientSession` | Reactive session state (`"loading"` / `"authenticated"` / `"unauthenticated"`) |
-| `useAuth()` | `{ login, logout, refresh, revalidateSession, isLoading }` | Auth action handlers |
+| `useAuth()` | `{ login, logout, fetchSession }` | Auth action handlers. `fetchSession` syncs client state — silently rotates tokens if expired before returning |
 
 ### `<AuthProvider>` Props
 

@@ -7,11 +7,6 @@ export {
   requireSession,
 } from "./session";
 
-export {
-  fetchSessionAction,
-  loginAction,
-  logoutAction,
-  refreshSessionAction,
-} from "./actions";
+export { fetchSessionAction, loginAction, logoutAction } from "./actions";
 
 export { withSession, withRequiredSession } from "./fetchers";

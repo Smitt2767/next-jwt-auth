@@ -29,8 +29,8 @@ export interface AuthActions {
     redirect?: boolean;
     redirectTo?: string;
   }): Promise<ActionResult<null>>;
-  refresh(): Promise<ActionResult<SessionActionData>>;
-  revalidateSession(): Promise<ActionResult<SessionActionData | null>>;
+  /** Syncs client session state. Silently rotates tokens if expired before returning. */
+  fetchSession(): Promise<ActionResult<SessionActionData | null>>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -39,9 +39,7 @@ interface AuthContextValue {
   session: ClientSession;
   login: AuthActions["login"];
   logout: AuthActions["logout"];
-  refresh: AuthActions["refresh"];
-  revalidateSession: AuthActions["revalidateSession"];
-  isLoading: boolean;
+  fetchSession: AuthActions["fetchSession"];
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -186,7 +184,6 @@ export function AuthProvider({
   const [session, setSession] = useState<ClientSession>(() =>
     buildInitialState(initialSession),
   );
-  const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
 
@@ -220,7 +217,7 @@ export function AuthProvider({
     let cancelled = false;
 
     async function fetchOnMount() {
-      const result = await actionsRef.current.revalidateSession();
+      const result = await actionsRef.current.fetchSession();
 
       if (cancelled) return;
 
@@ -258,7 +255,7 @@ export function AuthProvider({
         return;
       }
 
-      const result = await actionsRef.current.revalidateSession();
+      const result = await actionsRef.current.fetchSession();
 
       if (!result.success || !result.data) {
         setSession(UNAUTHENTICATED);
@@ -283,77 +280,43 @@ export function AuthProvider({
 
   const login = useCallback<AuthActions["login"]>(
     async (credentials, options) => {
-      setIsLoading(true);
-      try {
-        const result = await actions.login(credentials, options);
-        if (result.success) {
-          setSession(buildAuthenticatedState(result.data));
-        }
-        return result;
-      } finally {
-        setIsLoading(false);
+      const result = await actions.login(credentials, options);
+      if (result.success) {
+        setSession(buildAuthenticatedState(result.data));
       }
+      return result;
     },
     [actions],
   );
 
   const logout = useCallback<AuthActions["logout"]>(
     async (options) => {
-      setIsLoading(true);
-      try {
-        // Optimistically clear local state for instant UI response.
-        setSession(UNAUTHENTICATED);
-        return await actions.logout(options);
-      } finally {
-        setIsLoading(false);
-      }
+      // Optimistically clear local state for instant UI response.
+      setSession(UNAUTHENTICATED);
+      return actions.logout(options);
     },
     [actions],
   );
 
-  const refresh = useCallback<AuthActions["refresh"]>(async () => {
-    setIsLoading(true);
-    try {
-      const result = await actions.refresh();
-      if (result.success) {
-        setSession(buildAuthenticatedState(result.data));
-      } else {
-        setSession(UNAUTHENTICATED);
-        // Refresh failed — session expired without an explicit logout.
+  const fetchSession = useCallback<AuthActions["fetchSession"]>(async () => {
+    const result = await actions.fetchSession();
+    if (!result.success || !result.data) {
+      const wasAuthenticated = sessionRef.current.status === "authenticated";
+      setSession(UNAUTHENTICATED);
+      // Only fire onSessionExpired if the user had an active session —
+      // avoids calling it during normal unauthenticated revalidations.
+      if (wasAuthenticated) {
         onSessionExpiredRef.current?.();
       }
-      return result;
-    } finally {
-      setIsLoading(false);
+    } else {
+      setSession(buildAuthenticatedState(result.data));
     }
-  }, [actions]);
-
-  const revalidateSession = useCallback<
-    AuthActions["revalidateSession"]
-  >(async () => {
-    setIsLoading(true);
-    try {
-      const result = await actions.revalidateSession();
-      if (!result.success || !result.data) {
-        const wasAuthenticated = sessionRef.current.status === "authenticated";
-        setSession(UNAUTHENTICATED);
-        // Only fire onSessionExpired if the user had an active session —
-        // avoids calling it during normal unauthenticated revalidations.
-        if (wasAuthenticated) {
-          onSessionExpiredRef.current?.();
-        }
-      } else {
-        setSession(buildAuthenticatedState(result.data));
-      }
-      return result;
-    } finally {
-      setIsLoading(false);
-    }
+    return result;
   }, [actions]);
 
   const contextValue = useMemo<AuthContextValue>(
-    () => ({ session, login, logout, refresh, revalidateSession, isLoading }),
-    [session, login, logout, refresh, revalidateSession, isLoading],
+    () => ({ session, login, logout, fetchSession }),
+    [session, login, logout, fetchSession],
   );
 
   return (
@@ -390,11 +353,14 @@ export function useSession(): ClientSession {
 }
 
 /**
- * Returns auth action handlers and loading state.
+ * Returns auth action handlers.
  * Must be called inside a component wrapped by <AuthProvider>.
  *
+ * Loading state is intentionally not included — wrap calls in your own
+ * useTransition() or useState to track pending state where you need it.
+ *
  * @example
- * const { login, logout, isLoading } = useAuth();
+ * const { login, logout } = useAuth();
  *
  * // Login honouring the callbackUrl from the current URL
  * await login({ email, password }, { callbackUrl: searchParams.get("callbackUrl") });
@@ -421,8 +387,6 @@ export function useAuth() {
   return {
     login: ctx.login,
     logout: ctx.logout,
-    refresh: ctx.refresh,
-    revalidateSession: ctx.revalidateSession,
-    isLoading: ctx.isLoading,
+    fetchSession: ctx.fetchSession,
   };
 }

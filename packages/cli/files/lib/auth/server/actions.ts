@@ -55,11 +55,16 @@ function sanitizeCallbackUrl(url: string | undefined): string | undefined {
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 /**
- * Fetches the current session from cookies.
- * Attempts a silent token refresh if the access token is expired.
- * Returns { success: true, data: null } if no valid session exists.
+ * Fetches the current session from cookies and returns fresh session data.
  *
- * Used by AuthProvider and revalidateSession to sync client state.
+ * If the access token is expired but a valid refresh token exists, this action
+ * silently rotates the token pair (calls adapter.refreshToken, updates cookies)
+ * before resolving the session — the caller always receives a valid, up-to-date
+ * session or null, never a stale/expired one.
+ *
+ * Returns { success: true, data: null } if no valid session exists at all.
+ *
+ * Used internally by AuthProvider on mount and on tab focus via fetchSession.
  */
 export async function fetchSessionAction(): Promise<
   ActionResult<SessionActionData | null>
@@ -290,57 +295,3 @@ export async function logoutAction(
   return { success: true, data: null };
 }
 
-/**
- * Forces a token refresh using the current refresh token.
- * Updates cookies with the new token pair and returns the refreshed session.
- */
-export async function refreshSessionAction(): Promise<
-  ActionResult<SessionActionData>
-> {
-  debugLog("refreshSessionAction: called");
-
-  try {
-    const config = getGlobalAuthConfig();
-    const tokens = await getTokensFromCookies(config);
-
-    if (!tokens) {
-      debugLog("refreshSessionAction: no tokens found");
-      return { success: false, error: "No session found. Please log in." };
-    }
-
-    if (!isTokenValid(tokens.refreshToken)) {
-      debugLog("refreshSessionAction: refresh token is invalid or expired");
-      await clearTokenCookies(config);
-      return {
-        success: false,
-        error: "Session expired. Please log in again.",
-      };
-    }
-
-    const rawRefreshed = await config.adapter.refreshToken(tokens.refreshToken);
-    const refreshed = validateTokenPair(rawRefreshed);
-    await setTokenCookies(refreshed, config);
-    const user = await config.adapter.fetchUser(refreshed.accessToken);
-
-    debugLog("refreshSessionAction: refresh successful", { userId: user.id });
-
-    return {
-      success: true,
-      data: {
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken,
-        user,
-      },
-    };
-  } catch (error) {
-    debugLog("refreshSessionAction: failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    const config = getGlobalAuthConfig();
-    await clearTokenCookies(config).catch(() => {});
-    return {
-      success: false,
-      error: extractErrorMessage(error, "Session refresh failed."),
-    };
-  }
-}

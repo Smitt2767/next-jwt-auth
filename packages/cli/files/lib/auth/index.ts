@@ -21,12 +21,7 @@ import {
   createAuthMiddleware,
   matchesPath,
 } from "./middleware/auth-middleware";
-import {
-  fetchSessionAction,
-  loginAction,
-  logoutAction,
-  refreshSessionAction,
-} from "./server/actions";
+import { fetchSessionAction, loginAction, logoutAction } from "./server/actions";
 
 /**
  * Initializes the auth library with your adapter and configuration.
@@ -90,8 +85,7 @@ export function Auth(config: AuthConfig) {
     actions: {
       login: loginAction,
       logout: logoutAction,
-      refresh: refreshSessionAction,
-      revalidateSession: fetchSessionAction,
+      fetchSession: fetchSessionAction,
     } satisfies AuthActions,
   };
 }
