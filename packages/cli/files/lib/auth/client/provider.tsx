@@ -181,6 +181,21 @@ export function AuthProvider({
   onSessionExpired,
   refreshOnFocus = true,
 }: AuthProviderProps) {
+  // Validate actions at startup so misconfigured setups fail fast with a clear
+  // message instead of throwing an obscure error when an action is first called.
+  if (
+    !actions ||
+    typeof actions.login !== "function" ||
+    typeof actions.logout !== "function" ||
+    typeof actions.fetchSession !== "function"
+  ) {
+    throw new Error(
+      "[next-jwt-auth] <AuthProvider> requires an `actions` prop with login, logout, and fetchSession.\n" +
+        "Pass `actions={auth.actions}` from your auth.ts export.\n" +
+        "Example: <AuthProvider actions={auth.actions}>",
+    );
+  }
+
   const [session, setSession] = useState<ClientSession>(() =>
     buildInitialState(initialSession),
   );
