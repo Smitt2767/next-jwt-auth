@@ -1,4 +1,5 @@
 import { fileExists, dirExists, readJson, resolveCwd } from "../utils/fs";
+import { readMetadata, writeMetadata, createMetadata } from "./write-metadata";
 
 // ─── Version parsing ──────────────────────────────────────────────────────────
 
@@ -190,4 +191,68 @@ export function detectExistingAuthDir(): string | null {
   }
 
   return null;
+}
+
+// ─── Metadata-aware install detection ────────────────────────────────────────
+
+export interface ExistingInstall {
+  /** Relative path to the auth lib dir, e.g. "lib/auth" */
+  libDir: string;
+  /** Whether a metadata.json was found (vs. inferred from file scan) */
+  hadMetadata: boolean;
+}
+
+/**
+ * Finds an existing next-jwt-auth installation.
+ *
+ * Strategy:
+ *   1. Scan common candidate dirs for a metadata.json — this is the v1.1.0+ path.
+ *   2. Fall back to detectExistingAuthDir() (index.ts file scan) for v1.0.0 users.
+ *      In that case, infer config and silently create metadata.json.
+ *
+ * Returns null if no installation is found.
+ */
+export async function detectExistingInstall(): Promise<ExistingInstall | null> {
+  const candidates = [
+    "lib/auth",
+    "src/lib/auth",
+    "app/lib/auth",
+    "src/app/lib/auth",
+    "auth",
+    "src/auth",
+  ];
+
+  // 1. Check for metadata.json in all candidate dirs
+  for (const candidate of candidates) {
+    const meta = readMetadata(candidate);
+    if (meta) {
+      return { libDir: meta.config.libDir, hadMetadata: true };
+    }
+  }
+
+  // 2. Fall back to file-scan (v1.0.0 backward compat)
+  const libDir = detectExistingAuthDir();
+  if (!libDir) return null;
+
+  // Infer config from project state and silently create metadata.json
+  const alias = detectTsConfigAlias();
+  const srcDir = libDir.startsWith("src/");
+  const middlewareType = fileExists(resolveCwd("src", "proxy.ts")) ||
+    fileExists(resolveCwd("proxy.ts"))
+    ? "proxy" as const
+    : "middleware" as const;
+
+  const metadata = createMetadata({
+    libDir,
+    alias,
+    srcDir,
+    hasAuthTs: fileExists(resolveCwd(srcDir ? "src/auth.ts" : "auth.ts")),
+    hasMiddleware:
+      fileExists(resolveCwd(srcDir ? `src/${middlewareType}.ts` : `${middlewareType}.ts`)),
+    middlewareType,
+  });
+
+  await writeMetadata(libDir, metadata);
+
+  return { libDir, hadMetadata: false };
 }

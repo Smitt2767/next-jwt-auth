@@ -16,6 +16,7 @@ import type {
   ActionResult,
   LoginActionOptions,
   SessionActionData,
+  OAuthProviderId,
 } from "../types";
 
 // ─── AuthActions ──────────────────────────────────────────────────────────────
@@ -420,5 +421,22 @@ export function useAuth() {
     logout: ctx.logout,
     fetchSession: ctx.fetchSession,
     updateSessionToken: ctx.updateSessionToken,
+    /**
+     * Initiates an OAuth login flow by redirecting to the provider's login endpoint.
+     *
+     * @example
+     * const { oauthLogin } = useAuth();
+     * <button onClick={() => oauthLogin("google")}>Login with Google</button>
+     * <button onClick={() => oauthLogin("github", { callbackUrl: "/dashboard" })}>
+     *   Login with GitHub
+     * </button>
+     */
+    oauthLogin(providerId: OAuthProviderId, options?: { callbackUrl?: string }) {
+      const base = `/api/auth/${providerId}/login`;
+      const url = options?.callbackUrl
+        ? `${base}?callbackUrl=${encodeURIComponent(options.callbackUrl)}`
+        : base;
+      window.location.href = url;
+    },
   };
 }

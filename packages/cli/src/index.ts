@@ -2,6 +2,7 @@ import { init } from "./commands/init";
 import { update } from "./commands/update";
 import { check } from "./commands/check";
 import { uninstall } from "./commands/uninstall";
+import { addOAuth } from "./commands/add-oauth";
 
 // Injected at build time from the root monorepo package.json by tsup's `define`
 declare const __LIB_VERSION__: string;
@@ -19,34 +20,39 @@ async function main() {
     await check();
   } else if (command === "uninstall") {
     await uninstall();
+  } else if (command === "add" && args[1] === "oauth") {
+    await addOAuth();
   } else if (command === "--help" || command === "-h") {
     console.log("");
     console.log(
-      "  @ss/next-jwt-auth — JWT auth scaffolder for Next.js App Router",
+      "  @smittdev/next-jwt-auth — JWT auth scaffolder for Next.js App Router",
     );
     console.log("");
     console.log("  Usage:");
     console.log(
-      "    npx @ss/next-jwt-auth init      Scaffold auth into your project",
+      "    npx @smittdev/next-jwt-auth init               Scaffold auth into your project",
     );
     console.log(
-      "    npx @ss/next-jwt-auth update             Update library files to the latest version",
+      "    npx @smittdev/next-jwt-auth add oauth          Add OAuth provider support (Google, GitHub)",
     );
     console.log(
-      "    npx @ss/next-jwt-auth update --dry-run   Preview changes without writing any files",
+      "    npx @smittdev/next-jwt-auth update             Update library files to the latest version",
     );
     console.log(
-      "    npx @ss/next-jwt-auth check        Validate your project setup (exits with code 1 on failure)",
+      "    npx @smittdev/next-jwt-auth update --dry-run   Preview changes without writing any files",
     );
     console.log(
-      "    npx @ss/next-jwt-auth uninstall    Remove scaffolded auth files from the project",
+      "    npx @smittdev/next-jwt-auth check              Validate your project setup",
+    );
+    console.log(
+      "    npx @smittdev/next-jwt-auth uninstall          Remove scaffolded auth files from the project",
     );
     console.log("");
   } else if (command === "--version" || command === "-v") {
     console.log(__LIB_VERSION__);
   } else {
     console.error(`  Unknown command: ${command}`);
-    console.log("  Run  npx @ss/next-jwt-auth --help  for usage");
+    console.log("  Run  npx @smittdev/next-jwt-auth --help  for usage");
     process.exit(1);
   }
 }

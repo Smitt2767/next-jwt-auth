@@ -53,5 +53,6 @@ export function createAuthConfig(config: AuthConfig): ResolvedAuthConfig {
       home: config.pages?.home ?? DEFAULT_PAGES.home,
     },
     debug: config.debug ?? false,
+    providers: config.providers ?? [],
   };
 }

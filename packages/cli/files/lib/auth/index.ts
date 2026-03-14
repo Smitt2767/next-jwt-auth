@@ -22,6 +22,7 @@ import {
   matchesPath,
 } from "./middleware/auth-middleware";
 import { fetchSessionAction, loginAction, logoutAction, updateSessionTokenAction } from "./server/actions";
+import { createOAuthHandler } from "./handlers";
 
 /**
  * Initializes the auth library with your adapter and configuration.
@@ -74,6 +75,12 @@ export function Auth(config: AuthConfig) {
     /** Returns true if pathname matches any of the given path patterns. */
     matchesPath,
 
+    // ── OAuth Route Handlers ───────────────────────────────────────────────
+    // Export as `export const { GET } = auth.handlers` in your catch-all route.
+    handlers: {
+      GET: createOAuthHandler(),
+    },
+
     // ── Config ─────────────────────────────────────────────────────────────
     /** The resolved configuration object (rarely needed directly). */
     config: resolved,
@@ -109,4 +116,7 @@ export type {
   SessionActionData,
   AuthActions,
   LoginActionOptions,
+  OAuthUserInfo,
+  OAuthProvider,
+  OAuthProviderId,
 } from "./types";
