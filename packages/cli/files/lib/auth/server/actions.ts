@@ -132,12 +132,10 @@ export async function fetchSessionAction(): Promise<
 /**
  * Logs the user in with the provided credentials.
  *
- * By default (`redirect: true`) redirects after a successful login using
- * the first truthy value in this priority order:
- *   1. `options.redirectTo`  — explicit override, always wins
- *   2. `options.callbackUrl` — typically the `?callbackUrl=` param set by
+ * By default (`redirect: true`) redirects after a successful login to:
+ *   1. `options.callbackUrl` — typically the `?callbackUrl=` param set by
  *      requireSession(); validated to prevent open-redirect attacks
- *   3. `config.pages.home` — the configured default
+ *   2. `config.pages.home` — the configured default
  *
  * Set `redirect: false` to disable the automatic redirect and handle
  * navigation yourself on the client based on the returned ActionResult.
@@ -164,7 +162,7 @@ export async function loginAction(
   credentials: Record<string, unknown>,
   options: LoginActionOptions = {},
 ): Promise<ActionResult<SessionActionData>> {
-  const { redirect: shouldRedirect = true, redirectTo, callbackUrl } = options;
+  const { redirect: shouldRedirect = true, callbackUrl } = options;
 
   debugLog("loginAction: called", {
     shouldRedirect,
@@ -190,11 +188,7 @@ export async function loginAction(
     };
 
     if (shouldRedirect) {
-      // Priority: explicit redirectTo > sanitized callbackUrl > configured default
-      const destination =
-        redirectTo ??
-        sanitizeCallbackUrl(callbackUrl) ??
-        config.pages.home;
+      const destination = sanitizeCallbackUrl(callbackUrl) ?? config.pages.home;
 
       debugLog("loginAction: redirecting", { destination });
       // redirect() throws internally — this line never returns
@@ -221,8 +215,8 @@ export async function loginAction(
 /**
  * Logs the user out.
  *
- * By default (`redirect: true`) clears cookies and redirects to `redirectTo`
- * or `pages.signIn` — matching next-auth behaviour.
+ * By default (`redirect: true`) clears cookies and redirects to `callbackUrl`
+ * or `pages.signIn`.
  *
  * Set `redirect: false` to disable the automatic redirect and handle
  * navigation yourself on the client based on the returned ActionResult.
@@ -232,16 +226,16 @@ export async function loginAction(
  * await logoutAction();
  *
  * // Custom redirect target
- * await logoutAction({ redirectTo: "/login" });
+ * await logoutAction({ callbackUrl: "/login" });
  *
  * // Disable redirect — handle it on the client
  * const result = await logoutAction({ redirect: false });
  * if (result.success) router.replace("/");
  */
 export async function logoutAction(
-  options: { redirect?: boolean; redirectTo?: string } = {},
+  options: { redirect?: boolean; callbackUrl?: string } = {},
 ): Promise<ActionResult<null>> {
-  const { redirect: shouldRedirect = true, redirectTo } = options;
+  const { redirect: shouldRedirect = true, callbackUrl } = options;
 
   debugLog("logoutAction: called", { shouldRedirect });
 
@@ -286,7 +280,7 @@ export async function logoutAction(
   }
 
   if (shouldRedirect) {
-    const destination = redirectTo ?? config.pages.signIn;
+    const destination = sanitizeCallbackUrl(callbackUrl) ?? config.pages.signIn;
     debugLog("logoutAction: redirecting", { destination });
     // redirect() is called outside try/catch so it is never swallowed
     redirect(destination);

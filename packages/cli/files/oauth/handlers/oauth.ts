@@ -11,6 +11,7 @@ import { setTokenCookies } from "../core/cookies";
 import { TokenPairSchema, type OAuthProviderId } from "../types";
 
 const STATE_COOKIE_NAME = "oauth_state";
+const CALLBACK_URL_COOKIE_NAME = "oauth_callback_url";
 const STATE_COOKIE_MAX_AGE = 600; // 10 minutes
 
 /**
@@ -53,19 +54,31 @@ export function createOAuthHandler() {
     if (action === "login") {
       const state = crypto.randomUUID();
       const authorizationUrl = provider.getAuthorizationUrl({ state, redirectUri });
+      const { searchParams: loginParams } = new URL(request.url);
+      const callbackUrl = loginParams.get("callbackUrl");
 
       debugLog(`OAuth: initiating ${provider.name} login`, {
         state: state.slice(0, 8) + "...",
+        callbackUrl: callbackUrl ?? "(none)",
       });
 
-      const response = NextResponse.redirect(authorizationUrl);
-      response.cookies.set(STATE_COOKIE_NAME, state, {
+      const cookieOpts = {
         httpOnly: true,
         secure: config.cookieOptions.secure,
-        sameSite: "lax",
+        sameSite: "lax" as const,
         path: "/",
         maxAge: STATE_COOKIE_MAX_AGE,
-      });
+      };
+
+      const response = NextResponse.redirect(authorizationUrl);
+      response.cookies.set(STATE_COOKIE_NAME, state, cookieOpts);
+
+      // Persist callbackUrl across the provider redirect so the callback can
+      // use it — the provider strips all custom query params from the return URL.
+      if (callbackUrl && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")) {
+        response.cookies.set(CALLBACK_URL_COOKIE_NAME, callbackUrl, cookieOpts);
+      }
+
       return response;
     }
 
@@ -75,7 +88,7 @@ export function createOAuthHandler() {
       const code = searchParams.get("code");
       const state = searchParams.get("state");
       const storedState = request.cookies.get(STATE_COOKIE_NAME)?.value;
-      const callbackUrl = searchParams.get("callbackUrl");
+      const callbackUrl = request.cookies.get(CALLBACK_URL_COOKIE_NAME)?.value;
 
       // Validate CSRF state
       if (!code || !state || !storedState || state !== storedState) {
@@ -87,6 +100,7 @@ export function createOAuthHandler() {
         signInUrl.searchParams.set("error", "OAuthStateMismatch");
         const response = NextResponse.redirect(signInUrl);
         response.cookies.delete(STATE_COOKIE_NAME);
+        response.cookies.delete(CALLBACK_URL_COOKIE_NAME);
         return response;
       }
 
@@ -130,6 +144,7 @@ export function createOAuthHandler() {
           new URL(destination, origin),
         );
         successResponse.cookies.delete(STATE_COOKIE_NAME);
+        successResponse.cookies.delete(CALLBACK_URL_COOKIE_NAME);
 
         debugLog(`OAuth: login complete, redirecting to ${destination}`);
         return successResponse;
@@ -141,6 +156,7 @@ export function createOAuthHandler() {
         signInUrl.searchParams.set("error", encodeURIComponent(message));
         const response = NextResponse.redirect(signInUrl);
         response.cookies.delete(STATE_COOKIE_NAME);
+        response.cookies.delete(CALLBACK_URL_COOKIE_NAME);
         return response;
       }
     }

@@ -248,15 +248,10 @@ export interface LoginActionOptions {
    */
   redirect?: boolean;
   /**
-   * Explicit redirect destination after login. Takes priority over callbackUrl
-   * and pages.home.
-   */
-  redirectTo?: string;
-  /**
-   * A relative path to redirect to after login — typically read from the
-   * `?callbackUrl=` search param set by requireSession().
+   * Where to redirect after a successful login.
    * Must start with "/" to prevent open-redirect attacks; invalid values
    * are silently ignored and fall back to pages.home.
+   * Typically read from the `?callbackUrl=` search param set by requireSession().
    */
   callbackUrl?: string;
 }

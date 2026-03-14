@@ -28,7 +28,7 @@ export interface AuthActions {
   ): Promise<ActionResult<SessionActionData>>;
   logout(options?: {
     redirect?: boolean;
-    redirectTo?: string;
+    callbackUrl?: string;
   }): Promise<ActionResult<null>>;
   /** Syncs client session state. Silently rotates tokens if expired before returning. */
   fetchSession(): Promise<ActionResult<SessionActionData | null>>;
