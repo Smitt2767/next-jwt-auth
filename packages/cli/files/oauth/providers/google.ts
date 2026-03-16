@@ -32,6 +32,15 @@ export class GoogleProvider extends OAuthProvider {
     super(config);
   }
 
+  /**
+   * Builds the Google OAuth 2.0 authorization URL with PKCE.
+   *
+   * @param params.state                - CSRF state token (generated per request)
+   * @param params.redirectUri          - Registered callback URL
+   * @param params.codeChallenge        - PKCE code challenge
+   * @param params.codeChallengeMethod  - Always "S256"
+   * @returns The full Google authorization URL to redirect the user to.
+   */
   getAuthorizationUrl({
     state,
     redirectUri,
@@ -57,6 +66,15 @@ export class GoogleProvider extends OAuthProvider {
     return `${GOOGLE_AUTH_URL}?${params.toString()}`;
   }
 
+  /**
+   * Exchanges the authorization code for a Google access token.
+   *
+   * @param code         - Authorization code from the callback query string.
+   * @param redirectUri  - Must match the URL used in `getAuthorizationUrl`.
+   * @param codeVerifier - PKCE code verifier (the original random value).
+   * @returns The Google access token.
+   * @throws If the token exchange request fails or Google returns an error response.
+   */
   async exchangeCode(
     code: string,
     redirectUri: string,
@@ -84,6 +102,13 @@ export class GoogleProvider extends OAuthProvider {
     return { accessToken: data.access_token };
   }
 
+  /**
+   * Fetches the authenticated user's profile from Google's userinfo endpoint.
+   *
+   * @param accessToken - Google access token from `exchangeCode()`.
+   * @returns Normalized user info with `id` (Google's `sub`), `email`, `name`, and `picture`.
+   * @throws If the userinfo request fails or returns a non-OK status.
+   */
   async getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
     const response = await fetch(GOOGLE_USERINFO_URL, {
       headers: { Authorization: `Bearer ${accessToken}` },

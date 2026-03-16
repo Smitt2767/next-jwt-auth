@@ -31,6 +31,16 @@ import { createOAuthHandler } from "./handlers";
  * stored in a module-level singleton so every internal module can access it
  * without prop drilling.
  *
+ * @param config - Your auth configuration: adapter (required), plus optional
+ *   cookies, refresh, pages, debug, and providers settings.
+ * @returns An object containing:
+ *   - `getSession`, `getUser`, `getAccessToken`, `getRefreshToken`, `requireSession` — server session helpers
+ *   - `withSession`, `withRequiredSession` — fetch utilities
+ *   - `createMiddleware`, `matchesPath` — middleware factory and path matcher
+ *   - `handlers` — `{ GET }` for the OAuth catch-all route handler
+ *   - `config` — the resolved configuration object
+ *   - `actions` — bundled server actions to pass to `<AuthProvider>`
+ *
  * @example
  * // auth.ts
  * import { Auth } from "@/lib/auth";
@@ -76,7 +86,15 @@ export function Auth(config: AuthConfig) {
     matchesPath,
 
     // ── OAuth Route Handlers ───────────────────────────────────────────────
-    // Export as `export const { GET } = auth.handlers` in your catch-all route.
+    /**
+     * Next.js Route Handler for OAuth flows.
+     * Export as `export const { GET } = auth.handlers` in your catch-all route:
+     *   `app/api/auth/[...oauth]/route.ts`
+     *
+     * Handles `/api/auth/[provider]/login` and `/api/auth/[provider]/callback`.
+     * Before OAuth is configured this handler throws — run
+     * `npx @smittdev/next-jwt-auth add oauth` to replace it with the real implementation.
+     */
     handlers: {
       GET: createOAuthHandler(),
     },

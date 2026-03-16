@@ -17,12 +17,26 @@ const STATE_COOKIE_MAX_AGE = 600; // 10 minutes
 
 // ── PKCE helpers ───────────────────────────────────────────────────────────────
 
+/**
+ * Encodes a `Uint8Array` to a Base64url string (RFC 4648 §5, no padding).
+ *
+ * @param bytes - Raw bytes to encode.
+ * @returns Base64url-encoded string.
+ */
 function base64urlEncode(bytes: Uint8Array): string {
   let str = "";
   for (const byte of bytes) str += String.fromCharCode(byte);
   return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+/**
+ * Generates a PKCE (Proof Key for Code Exchange) verifier and challenge pair.
+ * The verifier is a 32-byte cryptographically random value; the challenge is
+ * its SHA-256 hash encoded as Base64url.
+ *
+ * @returns Object with `codeVerifier` (keep secret, send at token exchange)
+ *   and `codeChallenge` (send to authorization endpoint).
+ */
 async function generatePKCE(): Promise<{ codeVerifier: string; codeChallenge: string }> {
   const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
   const codeVerifier = base64urlEncode(verifierBytes);

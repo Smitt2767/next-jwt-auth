@@ -51,6 +51,7 @@ export abstract class OAuthProvider {
    * @param params.redirectUri          - The callback URL registered with the provider
    * @param params.codeChallenge        - PKCE code challenge (base64url(sha256(verifier)))
    * @param params.codeChallengeMethod  - Always "S256"
+   * @returns The full authorization URL string to redirect the user to.
    */
   abstract getAuthorizationUrl(params: {
     state: string;
@@ -66,6 +67,8 @@ export abstract class OAuthProvider {
    * @param code         - The authorization code from the callback query string
    * @param redirectUri  - Must match exactly what was used in getAuthorizationUrl
    * @param codeVerifier - PKCE code verifier (the original random value)
+   * @returns Promise resolving to the provider's access token.
+   * @throws If the code has expired, already been used, or the exchange fails.
    */
   abstract exchangeCode(
     code: string,
@@ -77,7 +80,9 @@ export abstract class OAuthProvider {
    * Fetches the authenticated user's profile using the provider's access token.
    * The returned `OAuthUserInfo` is passed directly to `adapter.oauthLogin()`.
    *
-   * @param accessToken - The provider access token from exchangeCode()
+   * @param accessToken - The provider access token from `exchangeCode()`.
+   * @returns Normalized `OAuthUserInfo` containing `id`, `email`, and optional `name`/`picture`.
+   * @throws If the access token is invalid or the provider's profile API returns an error.
    */
   abstract getUserInfo(accessToken: string): Promise<OAuthUserInfo>;
 }

@@ -30,12 +30,15 @@ export interface AuthMiddlewareResult {
 }
 
 /**
- * Converts a path pattern string to a regex.
- * Supports :param and :path* wildcards.
+ * Converts a path pattern string to a regular expression.
+ * Supports `:param` (single segment) and `:path*` (zero-or-more segments) wildcards.
  *
- * Examples:
- *   "/dashboard/:path*"  → matches /dashboard, /dashboard/settings, etc.
- *   "/user/:id"          → matches /user/123 but not /user/123/profile
+ * @param pattern - A path pattern string (e.g. `"/dashboard/:path*"`, `"/user/:id"`).
+ * @returns A regular expression that matches URLs following the pattern.
+ *
+ * @example
+ * // "/dashboard/:path*"  → matches /dashboard, /dashboard/settings, etc.
+ * // "/user/:id"          → matches /user/123 but not /user/123/profile
  */
 function patternToRegex(pattern: string): RegExp {
   const escaped = pattern
@@ -47,7 +50,11 @@ function patternToRegex(pattern: string): RegExp {
 }
 
 /**
- * Returns true if `pathname` matches any of the provided path patterns.
+ * Returns `true` if `pathname` matches any of the provided path patterns.
+ *
+ * @param pathname - The URL pathname to test (e.g. `"/dashboard/settings"`).
+ * @param patterns - An array of path patterns to match against (supports `:param` and `:path*` wildcards).
+ * @returns `true` if the pathname matches at least one pattern; `false` otherwise.
  *
  * @example
  * auth.matchesPath("/dashboard/settings", ["/dashboard/:path*"]) // true
@@ -98,8 +105,17 @@ function clearTokensFromResponse(response: NextResponse): void {
  * Call this once per middleware invocation to get the session state.
  *
  * The resolver automatically handles token refresh — if the access token
- * is expired or close to expiry, it calls adapter.refreshToken() and
- * returns the new tokens. Use session.response() to write them to cookies.
+ * is expired or close to expiry, it calls `adapter.refreshToken()` and
+ * returns the new tokens. Always use `session.response()` to write them to cookies.
+ *
+ * @returns An async function `(request: NextRequest) => Promise<AuthMiddlewareResult>`.
+ *
+ * @example
+ * // middleware.ts
+ * const resolveAuth = auth.createMiddleware();
+ * const session = await resolveAuth(request);
+ * if (!session.isAuthenticated) return session.redirect(new URL("/login", request.url));
+ * return session.response(NextResponse.next());
  */
 export function createAuthMiddleware() {
   return async function resolveAuth(

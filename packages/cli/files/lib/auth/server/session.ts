@@ -64,6 +64,8 @@ export async function getSession(): Promise<Session | null> {
 /**
  * Returns the current access token directly from cookies.
  * Does NOT call fetchUser — use getSession() if you need the full session.
+ *
+ * @returns The raw access token string, or `null` if no valid token exists in cookies.
  */
 export async function getAccessToken(): Promise<string | null> {
   const config = getGlobalAuthConfig();
@@ -75,6 +77,8 @@ export async function getAccessToken(): Promise<string | null> {
 /**
  * Returns the current refresh token directly from cookies.
  * Does NOT call fetchUser — use getSession() if you need the full session.
+ *
+ * @returns The raw refresh token string, or `null` if the refresh token cookie is absent.
  */
 export async function getRefreshToken(): Promise<string | null> {
   const config = getGlobalAuthConfig();
@@ -97,6 +101,11 @@ export async function getUser(): Promise<SessionUser | null> {
  * When `includeCallbackUrl` is true (default), the current path is appended
  * as a `?callbackUrl=` search param so your login page can redirect back
  * after a successful login.
+ *
+ * @param options.includeCallbackUrl - Append the current path as `?callbackUrl=` to the redirect. Defaults to `true`.
+ * @returns The current `Session` object (guaranteed non-null).
+ * @throws Always throws Next.js's internal `NEXT_REDIRECT` error when unauthenticated —
+ *         this is the standard mechanism for Next.js page redirects and must not be caught.
  *
  * @example
  * // app/dashboard/page.tsx

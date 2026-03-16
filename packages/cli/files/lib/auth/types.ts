@@ -120,16 +120,26 @@ export interface AuthAdapter {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
+/**
+ * Options for customizing the session cookies set by this library.
+ * All fields are optional — sensible defaults are applied automatically.
+ */
 export interface CookieOptions {
   /** Base name for cookies. Defaults to "auth-session". */
   name?: string;
   /** Defaults to true in production, false in development. */
   secure?: boolean;
+  /** Controls cross-site request behaviour. Defaults to "lax". */
   sameSite?: "strict" | "lax" | "none";
+  /** Restricts cookies to a specific domain (e.g. ".example.com" for subdomains). Omitted by default. */
   domain?: string;
+  /** Restricts cookies to a URL path prefix. Defaults to "/". */
   path?: string;
 }
 
+/**
+ * Options for controlling the automatic token-refresh behaviour in the middleware.
+ */
 export interface RefreshOptions {
   /**
    * Access tokens with less than this many seconds remaining will be
@@ -138,6 +148,10 @@ export interface RefreshOptions {
   refreshThresholdSeconds?: number;
 }
 
+/**
+ * Page paths used for redirects by session guards and logout.
+ * All fields are optional — defaults are applied if omitted.
+ */
 export interface AuthPages {
   /** The sign-in page path. Defaults to "/login". Also used as the post-logout redirect. */
   signIn?: string;
@@ -176,11 +190,17 @@ export interface AuthConfig {
 
 // ─── Resolved Config (internal) ──────────────────────────────────────────────
 
+/** Fully-resolved cookie names derived from `CookieOptions.name`. Internal use only. */
 export interface ResolvedCookieNames {
   accessToken: string;
   refreshToken: string;
 }
 
+/**
+ * Fully resolved internal auth configuration.
+ * Produced by `createAuthConfig()` and stored in the module-level singleton.
+ * Internal use only — consume via `getGlobalAuthConfig()`.
+ */
 export interface ResolvedAuthConfig {
   adapter: AuthAdapter;
   cookieNames: ResolvedCookieNames;
@@ -197,6 +217,12 @@ export interface ResolvedAuthConfig {
 
 // ─── Client Session ───────────────────────────────────────────────────────────
 
+/**
+ * The three possible states of a client-side authentication session.
+ * - `"loading"`         — session check in progress; no `initialSession` was passed to `<AuthProvider>`.
+ * - `"authenticated"`   — a valid session exists.
+ * - `"unauthenticated"` — no session; either `initialSession={null}` was passed or the fetch returned nothing.
+ */
 export type SessionStatus = "loading" | "authenticated" | "unauthenticated";
 
 /**
@@ -271,6 +297,11 @@ export type AuthActions = {
 
 // ─── Zod Schemas (runtime validation) ────────────────────────────────────────
 
+/**
+ * Zod schema for runtime validation of access + refresh token pairs.
+ * Both tokens must be non-empty strings with exactly 3 dot-separated JWT segments.
+ * Used internally by action handlers to catch malformed adapter responses early.
+ */
 export const TokenPairSchema = z.object({
   accessToken: z
     .string()
@@ -288,6 +319,10 @@ export const TokenPairSchema = z.object({
     ),
 });
 
+/**
+ * Zod schema for validating a decoded JWT payload.
+ * Requires the `exp` claim (expiry timestamp in seconds); `iat` and `sub` are optional.
+ */
 export const TokenPayloadSchema = z.object({
   exp: z.number({
     error: "JWT payload is missing the required `exp` claim",

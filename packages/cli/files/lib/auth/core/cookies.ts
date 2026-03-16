@@ -4,8 +4,12 @@ import { getTokenExpiry } from "./jwt";
 
 /**
  * Writes both access and refresh token cookies to the response.
- * Each cookie's maxAge is derived from the token's own `exp` claim.
+ * Each cookie's `maxAge` is derived from the token's own `exp` claim.
+ * Both cookies are set with `httpOnly: true` to prevent client-side access.
  * Called after login and token refresh.
+ *
+ * @param tokens - The access and refresh token pair to persist.
+ * @param config - The resolved auth configuration.
  */
 export async function setTokenCookies(
   tokens: TokenPair,
@@ -43,7 +47,9 @@ export async function setTokenCookies(
 
 /**
  * Reads the token pair from cookies.
- * Returns null if either cookie is missing.
+ *
+ * @param config - The resolved auth configuration.
+ * @returns The token pair, or `null` if either token cookie is absent.
  */
 export async function getTokensFromCookies(
   config: ResolvedAuthConfig,
@@ -59,6 +65,8 @@ export async function getTokensFromCookies(
 
 /**
  * Deletes both token cookies, effectively ending the session.
+ *
+ * @param config - The resolved auth configuration.
  */
 export async function clearTokenCookies(
   config: ResolvedAuthConfig,
@@ -71,6 +79,10 @@ export async function clearTokenCookies(
 /**
  * Updates only the access token cookie.
  * Used during silent refresh when only the access token changes.
+ * The cookie is set with `httpOnly: true`.
+ *
+ * @param accessToken - The new access token value to store.
+ * @param config - The resolved auth configuration.
  */
 export async function updateAccessTokenCookie(
   accessToken: string,

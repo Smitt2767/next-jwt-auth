@@ -386,10 +386,17 @@ export function useSession(): ClientSession {
 
 /**
  * Returns auth action handlers.
- * Must be called inside a component wrapped by <AuthProvider>.
+ * Must be called inside a component wrapped by `<AuthProvider>`.
  *
  * Loading state is intentionally not included — wrap calls in your own
- * useTransition() or useState to track pending state where you need it.
+ * `useTransition()` or `useState` to track pending state where you need it.
+ *
+ * @returns Object with:
+ *   - `login(credentials, options?)` — calls the login action and updates session state.
+ *   - `logout(options?)` — optimistically clears session state and calls the logout action.
+ *   - `fetchSession()` — manually re-fetches the session from the server.
+ *   - `updateSessionToken(newAccessToken)` — syncs a new access token into the HTTP-only cookie.
+ *   - `oauthLogin(providerId, options?)` — initiates an OAuth login redirect.
  *
  * @example
  * const { login, logout } = useAuth();

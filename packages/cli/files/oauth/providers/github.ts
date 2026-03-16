@@ -33,6 +33,15 @@ export class GitHubProvider extends OAuthProvider {
     super(config);
   }
 
+  /**
+   * Builds the GitHub OAuth authorization URL with PKCE.
+   *
+   * @param params.state                - CSRF state token (generated per request)
+   * @param params.redirectUri          - Registered callback URL
+   * @param params.codeChallenge        - PKCE code challenge
+   * @param params.codeChallengeMethod  - Always "S256"
+   * @returns The full GitHub authorization URL to redirect the user to.
+   */
   getAuthorizationUrl({
     state,
     redirectUri,
@@ -55,6 +64,15 @@ export class GitHubProvider extends OAuthProvider {
     return `${GITHUB_AUTH_URL}?${params.toString()}`;
   }
 
+  /**
+   * Exchanges the authorization code for a GitHub access token.
+   *
+   * @param code         - Authorization code from the callback query string.
+   * @param redirectUri  - Must match the URL used in `getAuthorizationUrl`.
+   * @param codeVerifier - PKCE code verifier (the original random value).
+   * @returns The GitHub access token.
+   * @throws If the token exchange request fails or GitHub returns an error response.
+   */
   async exchangeCode(
     code: string,
     redirectUri: string,
@@ -95,6 +113,14 @@ export class GitHubProvider extends OAuthProvider {
     return { accessToken: data.access_token };
   }
 
+  /**
+   * Fetches the authenticated user's profile from GitHub's user API.
+   * Falls back to the emails endpoint if email is not present in the main user response.
+   *
+   * @param accessToken - GitHub access token from `exchangeCode()`.
+   * @returns Normalized user info with `id`, `email`, `name`, and `picture` (avatar URL).
+   * @throws If no verified email can be retrieved, or if any GitHub API call fails.
+   */
   async getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
     const headers = {
       Authorization: `Bearer ${accessToken}`,
