@@ -217,7 +217,7 @@ npx @smittdev/next-jwt-auth update --dry-run
 
 ### `check`
 
-Validates your project setup. Runs six checks and reports pass/warn/fail for each:
+Validates your project setup. Runs up to eight checks and reports pass/warn/fail for each:
 
 1. Library directory is installed
 2. `auth.ts` exists
@@ -225,6 +225,8 @@ Validates your project setup. Runs six checks and reports pass/warn/fail for eac
 4. `AuthProvider` is present in the root layout
 5. `middleware.ts` / `proxy.ts` exists and is configured correctly
 6. Import alias in `auth.ts` matches `tsconfig.json`
+7. OAuth route exists at `app/api/auth/[...oauth]/route.ts` _(only when OAuth is installed)_
+8. `adapter.oauthLogin` is implemented _(only when OAuth is installed)_
 
 ```bash
 npx @smittdev/next-jwt-auth check
@@ -241,6 +243,25 @@ npx @smittdev/next-jwt-auth uninstall
 ```
 
 > `auth.ts` defaults to **no** when prompted — it contains your adapter implementation and is skipped unless you explicitly confirm.
+
+### `add oauth`
+
+Adds OAuth provider support (Google, GitHub) to an existing installation. Run this after `init`.
+
+```bash
+npx @smittdev/next-jwt-auth add oauth
+```
+
+This command:
+- Prompts you to select which providers to install (Google, GitHub, or both)
+- Copies provider files into your library directory
+- Generates the catch-all OAuth route at `app/api/auth/[...oauth]/route.ts`
+- Shows a preview of the changes needed in `auth.ts` and optionally patches them automatically
+
+After running, you still need to:
+1. Register callback URLs with each provider (see [OAuth Setup](#oauth-setup) below)
+2. Add the required environment variables
+3. Implement `adapter.oauthLogin()` in your `auth.ts`
 
 ### `--version` / `--help`
 
@@ -313,12 +334,133 @@ export function LoginForm() {
 }
 ```
 
-Pass `redirect: false` to handle navigation yourself instead of letting the action redirect automatically:
+Pass `redirect: false` to handle navigation yourself, or `callbackUrl` to control the destination:
 
 ```typescript
 await login(credentials, { redirect: false });
-await login(credentials, { redirectTo: "/onboarding" });
+await login(credentials, { callbackUrl: "/onboarding" });
 ```
+
+### OAuth Login
+
+> Requires running `npx @smittdev/next-jwt-auth add oauth` first.
+
+#### OAuth Setup
+
+**1. Register callback URLs with each provider:**
+
+| Provider | Callback URL to register |
+|----------|--------------------------|
+| Google | `https://your-domain.com/api/auth/google/callback` |
+| GitHub | `https://your-domain.com/api/auth/github/callback` |
+
+- **Google**: [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → OAuth 2.0 Client IDs → Authorized redirect URIs
+- **GitHub**: Settings → Developer settings → OAuth Apps → your app → Authorization callback URL
+
+**2. Add environment variables:**
+
+```bash
+# .env.local
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+```
+
+**3. Add providers and implement `oauthLogin` in `auth.ts`:**
+
+```typescript
+// auth.ts
+import { Auth } from "@/lib/auth";
+import { GoogleProvider, GitHubProvider } from "@/lib/auth/providers";
+
+export const auth = Auth({
+  adapter: {
+    // ... your existing login, refreshToken, fetchUser ...
+
+    // Called after a successful OAuth callback.
+    // Exchange the provider's user profile for your own JWT tokens.
+    //
+    // @param provider            - "google" | "github"
+    // @param userInfo            - Normalized profile: { id, email, name, picture, raw }
+    // @param providerAccessToken - Raw access token from the provider.
+    //                              Forward to your backend if it needs to call provider APIs.
+    async oauthLogin(provider, userInfo, providerAccessToken) {
+      const res = await fetch("https://your-api.com/auth/oauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, userInfo, providerAccessToken }),
+      });
+      if (!res.ok) throw new Error("OAuth login failed");
+      return res.json(); // must return { accessToken, refreshToken }
+    },
+  },
+
+  providers: [
+    new GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    new GitHubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+  ],
+});
+```
+
+**4. Add OAuth buttons to your login page:**
+
+```tsx
+"use client";
+import { useAuth } from "@/lib/auth/client";
+
+export function LoginPage() {
+  const { oauthLogin } = useAuth();
+
+  return (
+    <div>
+      <button onClick={() => oauthLogin("google")}>
+        Sign in with Google
+      </button>
+      <button onClick={() => oauthLogin("github")}>
+        Sign in with GitHub
+      </button>
+      {/* Redirect to /dashboard after login */}
+      <button onClick={() => oauthLogin("google", { callbackUrl: "/dashboard" })}>
+        Sign in with Google
+      </button>
+    </div>
+  );
+}
+```
+
+`oauthLogin(provider, options?)` redirects the browser to `/api/auth/[provider]/login`, which starts the OAuth flow. On success, the user is redirected to `callbackUrl` if provided, otherwise to `pages.home`.
+
+#### How the OAuth flow works
+
+```
+Browser                Next.js                  Provider
+  │                       │                         │
+  ├─ GET /api/auth/google/login ──────────────────► │
+  │                       │  generate state + PKCE  │
+  │                       │  store in httpOnly cookie│
+  │◄──────────── 302 redirect to Google ────────────┤
+  │                       │                         │
+  ├─────────────────────────────────── user consents ┤
+  │                       │                         │
+  ├─ GET /api/auth/google/callback?code=...&state=.. ┤
+  │                       │  validate state (CSRF)  │
+  │                       │  validate PKCE verifier │
+  │                       │  exchange code for token│
+  │                       │  fetch user profile     │
+  │                       │  call adapter.oauthLogin│
+  │                       │  set session cookies    │
+  │◄──────────── 302 redirect to /dashboard ────────┤
+```
+
+The OAuth flow uses both **CSRF state** and **PKCE (S256)** for security. The PKCE `code_verifier` is stored in an `httpOnly` cookie and never exposed to the browser.
 
 ### Middleware / Route Protection
 
@@ -462,7 +604,7 @@ After running `init`, your project will have:
 auth.ts                        ← Your adapter + config (edit this)
 middleware.ts                  ← Route protection (edit this; proxy.ts on Next.js 16+)
 lib/auth/
-  .version                     ← Installed CLI version (do not edit — used by `update`)
+  metadata.json                ← Install config (do not edit — used by CLI commands)
   index.ts                     ← Auth() factory + all public exports
   types.ts                     ← All TypeScript types
   config.ts                    ← Global config singleton (internal)
@@ -478,6 +620,24 @@ lib/auth/
     auth-middleware.ts         ← Middleware resolver + matchesPath()
   client/
     provider.tsx               ← <AuthProvider>, useSession(), useAuth()
+  handlers/
+    index.ts                   ← Stub handler (replaced by add oauth)
+```
+
+After running `add oauth`, the following are also added:
+
+```
+app/api/auth/[...oauth]/
+  route.ts                     ← OAuth catch-all route (do not edit)
+lib/auth/
+  providers/
+    base.ts                    ← Abstract OAuthProvider base class (extend for custom providers)
+    google.ts                  ← GoogleProvider
+    github.ts                  ← GitHubProvider
+    index.ts                   ← Re-exports (only installed providers)
+  handlers/
+    oauth.ts                   ← PKCE + CSRF handler: login initiation + code exchange + callback
+    index.ts                   ← createOAuthHandler() export
 ```
 
 ---
@@ -492,6 +652,8 @@ lib/auth/
 | `adapter.refreshToken` | `(token) => Promise<TokenPair>` | required | Exchange refresh token for new pair |
 | `adapter.fetchUser` | `(token) => Promise<SessionUser>` | required | Return user data for an access token |
 | `adapter.logout` | `(tokens) => Promise<void>` | optional | Invalidate refresh token server-side |
+| `adapter.oauthLogin` | `(provider, userInfo, providerAccessToken) => Promise<TokenPair>` | optional | Exchange OAuth profile for your own JWT pair. Required when using OAuth providers |
+| `providers` | `OAuthProvider[]` | `[]` | Provider instances. Add after running `add oauth` |
 | `cookies.name` | `string` | `"auth-session"` | Cookie base name |
 | `cookies.secure` | `boolean` | `true` in prod | Secure cookie flag |
 | `cookies.sameSite` | `string` | `"lax"` | SameSite cookie attribute |
@@ -531,7 +693,7 @@ lib/auth/
 | Hook | Returns | Description |
 |------|---------|-------------|
 | `useSession()` | `ClientSession` | Reactive session state (`"loading"` / `"authenticated"` / `"unauthenticated"`) |
-| `useAuth()` | `{ login, logout, fetchSession, updateSessionToken }` | Auth action handlers. `fetchSession` syncs client state — silently rotates tokens if expired before returning. `updateSessionToken` allows injecting a new accessToken from outside the library (e.g. via an axios interceptor) and syncing it into the cookies. |
+| `useAuth()` | `{ login, logout, fetchSession, updateSessionToken, oauthLogin }` | Auth action handlers. `fetchSession` syncs client state — silently rotates tokens if expired before returning. `updateSessionToken` allows injecting a new accessToken from outside the library (e.g. via an axios interceptor) and syncing it into the cookies. `oauthLogin(provider, options?)` redirects to the OAuth login route — `provider` is `"google" \| "github"`, `options.callbackUrl` controls the post-login destination. |
 
 ### `<AuthProvider>` Props
 
