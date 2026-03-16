@@ -3,9 +3,10 @@ import pc from "picocolors";
 import fs from "fs-extra";
 import {
   detectProject,
-  detectExistingAuthDir,
+  detectExistingInstall,
   parseMajorVersion,
 } from "../steps/detect";
+import { readMetadata } from "../steps/write-metadata";
 import { resolveCwd, fileExists } from "../utils/fs";
 import { logger } from "../utils/logger";
 
@@ -30,15 +31,18 @@ export async function uninstall(): Promise<void> {
     process.exit(1);
   }
 
-  const detected = detectExistingAuthDir();
+  const install = await detectExistingInstall();
 
-  if (!detected) {
+  if (!install) {
     logger.warn(
       "Could not find an existing installation.\n" +
         "    Common locations checked: lib/auth, src/lib/auth, auth, src/auth",
     );
     process.exit(0);
   }
+
+  const detected = install.libDir;
+  const metadata = readMetadata(detected);
 
   logger.info(`Found installation at: ${pc.cyan(detected + "/")}`);
   logger.break();
@@ -47,13 +51,20 @@ export async function uninstall(): Promise<void> {
   const nextMajor = parseMajorVersion(project.nextVersion);
   const middlewareFileName = nextMajor >= 16 ? "proxy.ts" : "middleware.ts";
 
-  const authTsPath = project.srcDir ? "src/auth.ts" : "auth.ts";
-  const middlewarePath = project.srcDir
-    ? `src/${middlewareFileName}`
-    : middlewareFileName;
+  const srcDir = metadata?.config.srcDir ?? project.srcDir;
+  const authTsPath = srcDir ? "src/auth.ts" : "auth.ts";
+  const middlewarePath = srcDir ? `src/${middlewareFileName}` : middlewareFileName;
+
+  const oauthEnabled = metadata?.features.oauth.enabled ?? false;
+  const oauthRoutePath = srcDir
+    ? "src/app/api/auth/[...oauth]/route.ts"
+    : "app/api/auth/[...oauth]/route.ts";
 
   const authTsExists = fileExists(resolveCwd(authTsPath));
   const middlewareExists = fileExists(resolveCwd(middlewarePath));
+  const oauthRouteExists =
+    oauthEnabled &&
+    fileExists(resolveCwd(...oauthRoutePath.split("/")));
 
   // ── 3. Confirm what to remove ─────────────────────────────────────
   const { confirmDir } = await prompts(
@@ -74,6 +85,7 @@ export async function uninstall(): Promise<void> {
 
   let removeAuthTs = false;
   let removeMiddleware = false;
+  let removeOAuthRoute = false;
 
   if (authTsExists) {
     const { confirm } = await prompts({
@@ -95,7 +107,17 @@ export async function uninstall(): Promise<void> {
     removeMiddleware = confirm as boolean;
   }
 
-  if (!confirmDir && !removeAuthTs && !removeMiddleware) {
+  if (oauthRouteExists) {
+    const { confirm } = await prompts({
+      type: "confirm",
+      name: "confirm",
+      message: `Delete ${pc.red(oauthRoutePath)} (OAuth catch-all route)?`,
+      initial: true,
+    });
+    removeOAuthRoute = confirm as boolean;
+  }
+
+  if (!confirmDir && !removeAuthTs && !removeMiddleware && !removeOAuthRoute) {
     logger.break();
     logger.warn("Nothing to remove.");
     process.exit(0);
@@ -117,6 +139,11 @@ export async function uninstall(): Promise<void> {
   if (removeMiddleware) {
     await fs.remove(resolveCwd(middlewarePath));
     logger.success(`Removed ${middlewarePath}`);
+  }
+
+  if (removeOAuthRoute) {
+    await fs.remove(resolveCwd(...oauthRoutePath.split("/")));
+    logger.success(`Removed ${oauthRoutePath}`);
   }
 
   logger.break();

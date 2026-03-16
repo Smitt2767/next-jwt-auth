@@ -2,10 +2,12 @@ import pc from "picocolors";
 import fs from "fs-extra";
 import {
   detectProject,
-  detectExistingAuthDir,
+  detectExistingInstall,
   detectTsConfigAlias,
 } from "../steps/detect";
 import { resolveCwd, fileExists } from "../utils/fs";
+import { readMetadata } from "../steps/write-metadata";
+import type { AuthMetadata } from "../steps/write-metadata";
 import { logger } from "../utils/logger";
 
 // ─── Result types ─────────────────────────────────────────────────────────────
@@ -302,6 +304,67 @@ function checkImportAlias(srcDir: boolean): CheckResult {
   };
 }
 
+/**
+ * CHECK 7 — OAuth route exists (only when oauth is enabled in metadata)
+ * CHECK 8 — oauthLogin() is implemented in auth.ts (not a stub)
+ */
+function oauthChecks(
+  metadata: AuthMetadata | null,
+  srcDir: boolean,
+): CheckResult[] {
+  if (!metadata?.features.oauth.enabled) return [];
+
+  const results: CheckResult[] = [];
+
+  // Check 7: OAuth route file exists
+  const routePath = srcDir
+    ? resolveCwd("src", "app", "api", "auth", "[...oauth]", "route.ts")
+    : resolveCwd("app", "api", "auth", "[...oauth]", "route.ts");
+  const routeDisplay = srcDir
+    ? "src/app/api/auth/[...oauth]/route.ts"
+    : "app/api/auth/[...oauth]/route.ts";
+
+  if (fileExists(routePath)) {
+    results.push({ label: `OAuth route found at ${routeDisplay}`, status: "pass" });
+  } else {
+    results.push({
+      label: "OAuth route not found",
+      status: "fail",
+      detail: `Expected: ${routeDisplay}`,
+      hint: "Run: npx @smittdev/next-jwt-auth add oauth",
+    });
+  }
+
+  // Check 8: oauthLogin() is implemented (not a stub)
+  const authTsPath = srcDir ? resolveCwd("src", "auth.ts") : resolveCwd("auth.ts");
+  const authTsDisplay = srcDir ? "src/auth.ts" : "auth.ts";
+  const content = readFileSafe(authTsPath);
+
+  if (!content) {
+    results.push({
+      label: "oauthLogin() check skipped",
+      status: "skip",
+      detail: `${authTsDisplay} could not be read`,
+    });
+  } else if (content.includes("oauthLogin() not implemented")) {
+    results.push({
+      label: "oauthLogin() is not yet implemented",
+      status: "warn",
+      hint: `Open ${authTsDisplay} and implement oauthLogin() to connect your backend API`,
+    });
+  } else if (content.includes("oauthLogin")) {
+    results.push({ label: "oauthLogin() is implemented", status: "pass" });
+  } else {
+    results.push({
+      label: "oauthLogin() not found in auth.ts",
+      status: "warn",
+      hint: `Add oauthLogin() to your adapter in ${authTsDisplay}`,
+    });
+  }
+
+  return results;
+}
+
 // ─── Command ──────────────────────────────────────────────────────────────────
 
 /**
@@ -326,7 +389,9 @@ export async function check(): Promise<void> {
     10,
   );
 
-  const authDir = detectExistingAuthDir();
+  const install = await detectExistingInstall();
+  const authDir = install?.libDir ?? null;
+  const metadata = authDir ? readMetadata(authDir) : null;
 
   const results: CheckResult[] = [
     checkAuthDirExists(authDir),
@@ -335,6 +400,7 @@ export async function check(): Promise<void> {
     checkAuthProviderInLayout(project.srcDir),
     checkMiddleware(project.srcDir, isNaN(nextMajor) ? 0 : nextMajor),
     checkImportAlias(project.srcDir),
+    ...oauthChecks(metadata, project.srcDir),
   ];
 
   results.forEach(printResult);

@@ -11,6 +11,7 @@ import { generateAuthFile } from "../steps/generate-auth";
 import { generateMiddlewareFile } from "../steps/generate-middleware";
 import { installDeps } from "../steps/install-deps";
 import { logger } from "../utils/logger";
+import { createMetadata, writeMetadata } from "../steps/write-metadata";
 
 export async function init(): Promise<void> {
   logger.banner();
@@ -182,7 +183,18 @@ export async function init(): Promise<void> {
     installDeps(project.packageManager, ["zod"]);
   }
 
-  // ── 5. Done ───────────────────────────────────────────────────────
+  // ── 5. Write metadata.json ────────────────────────────────────────
+  const metadata = createMetadata({
+    libDir: answers.authDir as string,
+    alias,
+    srcDir: project.srcDir,
+    hasAuthTs: !answers.skipAuthTs,
+    hasMiddleware: answers.generateMiddleware as boolean,
+    middlewareType: nextMajor >= 16 ? "proxy" : "middleware",
+  });
+  await writeMetadata(answers.authDir as string, metadata);
+
+  // ── 6. Done ───────────────────────────────────────────────────────
   logger.done();
   logger.nextSteps(
     answers.authDir as string,

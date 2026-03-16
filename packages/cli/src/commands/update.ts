@@ -4,10 +4,12 @@ import path from "path";
 import fs from "fs-extra";
 import {
   detectProject,
-  detectExistingAuthDir,
+  detectExistingInstall,
   detectTsConfigAlias,
 } from "../steps/detect";
 import { copyLibraryFiles } from "../steps/copy-files";
+import { copyOAuthFiles, type ProviderId } from "../steps/copy-oauth-files";
+import { readMetadata, writeMetadata, mergeMetadata } from "../steps/write-metadata";
 import { resolveCwd, fileExists } from "../utils/fs";
 import { logger } from "../utils/logger";
 
@@ -108,11 +110,12 @@ export async function update(dryRun = false): Promise<void> {
     process.exit(1);
   }
 
-  const detected = detectExistingAuthDir();
+  const install = await detectExistingInstall();
 
   let authDir: string;
 
-  if (detected) {
+  if (install) {
+    const detected = install.libDir;
     logger.info(`Found existing installation at: ${pc.cyan(detected + "/")}`);
     logger.break();
 
@@ -192,6 +195,15 @@ export async function update(dryRun = false): Promise<void> {
 
     try {
       await copyLibraryFiles(authDir);
+
+      // If OAuth is enabled, also update provider + handler files
+      const metadata = readMetadata(authDir);
+      if (metadata?.features.oauth.enabled) {
+        const providers = metadata.features.oauth.providers as ProviderId[];
+        await copyOAuthFiles(authDir, providers);
+        // Bump version in metadata
+        await writeMetadata(authDir, mergeMetadata(metadata, {}));
+      }
     } catch (error) {
       // Restore original files if copy fails
       await fs.copy(tempDir, destDir, { overwrite: true });
