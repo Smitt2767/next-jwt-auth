@@ -1,6 +1,6 @@
 // lib/auth/providers/github.ts
 
-import type { OAuthUserInfo } from "../types";
+import type { OAuthUserInfo } from "../../lib/auth/types";
 import { OAuthProvider, type OAuthProviderConfig } from "./base";
 
 const DEFAULT_SCOPES = ["user:email", "read:user"];
@@ -36,15 +36,21 @@ export class GitHubProvider extends OAuthProvider {
   getAuthorizationUrl({
     state,
     redirectUri,
+    codeChallenge,
+    codeChallengeMethod,
   }: {
     state: string;
     redirectUri: string;
+    codeChallenge: string;
+    codeChallengeMethod: "S256";
   }): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
       redirect_uri: redirectUri,
       scope: (this.config.scopes ?? DEFAULT_SCOPES).join(" "),
       state,
+      code_challenge: codeChallenge,
+      code_challenge_method: codeChallengeMethod,
     });
     return `${GITHUB_AUTH_URL}?${params.toString()}`;
   }
@@ -52,6 +58,7 @@ export class GitHubProvider extends OAuthProvider {
   async exchangeCode(
     code: string,
     redirectUri: string,
+    codeVerifier: string,
   ): Promise<{ accessToken: string }> {
     const response = await fetch(GITHUB_TOKEN_URL, {
       method: "POST",
@@ -64,6 +71,7 @@ export class GitHubProvider extends OAuthProvider {
         client_id: this.config.clientId,
         client_secret: this.config.clientSecret,
         redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
       }).toString(),
     });
 

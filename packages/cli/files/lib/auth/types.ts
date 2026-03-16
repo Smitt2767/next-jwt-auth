@@ -75,8 +75,13 @@ export interface OAuthUserInfo {
 export interface OAuthProvider {
   readonly id: OAuthProviderId;
   readonly name: string;
-  getAuthorizationUrl(params: { state: string; redirectUri: string }): string;
-  exchangeCode(code: string, redirectUri: string): Promise<{ accessToken: string }>;
+  getAuthorizationUrl(params: {
+    state: string;
+    redirectUri: string;
+    codeChallenge: string;
+    codeChallengeMethod: "S256";
+  }): string;
+  exchangeCode(code: string, redirectUri: string, codeVerifier: string): Promise<{ accessToken: string }>;
   getUserInfo(accessToken: string): Promise<OAuthUserInfo>;
 }
 

@@ -11,8 +11,25 @@ import { setTokenCookies } from "../core/cookies";
 import { TokenPairSchema, type OAuthProviderId } from "../types";
 
 const STATE_COOKIE_NAME = "oauth_state";
+const PKCE_COOKIE_NAME = "oauth_pkce_verifier";
 const CALLBACK_URL_COOKIE_NAME = "oauth_callback_url";
 const STATE_COOKIE_MAX_AGE = 600; // 10 minutes
+
+// ── PKCE helpers ───────────────────────────────────────────────────────────────
+
+function base64urlEncode(bytes: Uint8Array): string {
+  let str = "";
+  for (const byte of bytes) str += String.fromCharCode(byte);
+  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function generatePKCE(): Promise<{ codeVerifier: string; codeChallenge: string }> {
+  const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
+  const codeVerifier = base64urlEncode(verifierBytes);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
+  const codeChallenge = base64urlEncode(new Uint8Array(digest));
+  return { codeVerifier, codeChallenge };
+}
 
 /**
  * Creates the GET handler for the OAuth catch-all route.
@@ -53,7 +70,13 @@ export function createOAuthHandler() {
     // ── Login: initiate OAuth flow ─────────────────────────────────────────────
     if (action === "login") {
       const state = crypto.randomUUID();
-      const authorizationUrl = provider.getAuthorizationUrl({ state, redirectUri });
+      const { codeVerifier, codeChallenge } = await generatePKCE();
+      const authorizationUrl = provider.getAuthorizationUrl({
+        state,
+        redirectUri,
+        codeChallenge,
+        codeChallengeMethod: "S256",
+      });
       const { searchParams: loginParams } = new URL(request.url);
       const callbackUrl = loginParams.get("callbackUrl");
 
@@ -72,6 +95,7 @@ export function createOAuthHandler() {
 
       const response = NextResponse.redirect(authorizationUrl);
       response.cookies.set(STATE_COOKIE_NAME, state, cookieOpts);
+      response.cookies.set(PKCE_COOKIE_NAME, codeVerifier, cookieOpts);
 
       // Persist callbackUrl across the provider redirect so the callback can
       // use it — the provider strips all custom query params from the return URL.
@@ -88,28 +112,36 @@ export function createOAuthHandler() {
       const code = searchParams.get("code");
       const state = searchParams.get("state");
       const storedState = request.cookies.get(STATE_COOKIE_NAME)?.value;
+      const codeVerifier = request.cookies.get(PKCE_COOKIE_NAME)?.value;
       const callbackUrl = request.cookies.get(CALLBACK_URL_COOKIE_NAME)?.value;
 
-      // Validate CSRF state
-      if (!code || !state || !storedState || state !== storedState) {
-        debugLog("OAuth: state mismatch or missing code", {
+      const clearAuthCookies = (res: NextResponse) => {
+        res.cookies.delete(STATE_COOKIE_NAME);
+        res.cookies.delete(PKCE_COOKIE_NAME);
+        res.cookies.delete(CALLBACK_URL_COOKIE_NAME);
+      };
+
+      // Validate CSRF state + PKCE verifier presence
+      if (!code || !state || !storedState || state !== storedState || !codeVerifier) {
+        debugLog("OAuth: state mismatch, missing code, or missing PKCE verifier", {
           hasCode: !!code,
           hasState: !!state,
           hasStoredState: !!storedState,
+          hasPkce: !!codeVerifier,
         });
         signInUrl.searchParams.set("error", "OAuthStateMismatch");
         const response = NextResponse.redirect(signInUrl);
-        response.cookies.delete(STATE_COOKIE_NAME);
-        response.cookies.delete(CALLBACK_URL_COOKIE_NAME);
+        clearAuthCookies(response);
         return response;
       }
 
       try {
-        // Exchange code for provider access token
+        // Exchange code for provider access token (with PKCE verifier)
         debugLog(`OAuth: exchanging code for ${provider.name} access token`);
         const { accessToken: providerToken } = await provider.exchangeCode(
           code,
           redirectUri,
+          codeVerifier,
         );
 
         // Fetch user profile from provider
@@ -143,8 +175,7 @@ export function createOAuthHandler() {
         const successResponse = NextResponse.redirect(
           new URL(destination, origin),
         );
-        successResponse.cookies.delete(STATE_COOKIE_NAME);
-        successResponse.cookies.delete(CALLBACK_URL_COOKIE_NAME);
+        clearAuthCookies(successResponse);
 
         debugLog(`OAuth: login complete, redirecting to ${destination}`);
         return successResponse;
@@ -155,8 +186,7 @@ export function createOAuthHandler() {
 
         signInUrl.searchParams.set("error", encodeURIComponent(message));
         const response = NextResponse.redirect(signInUrl);
-        response.cookies.delete(STATE_COOKIE_NAME);
-        response.cookies.delete(CALLBACK_URL_COOKIE_NAME);
+        clearAuthCookies(response);
         return response;
       }
     }

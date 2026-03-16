@@ -47,24 +47,30 @@ export abstract class OAuthProvider {
    * Returns the full authorization URL to redirect the user to.
    * The user is sent here to begin the OAuth consent flow.
    *
-   * @param params.state       - CSRF state token (generated per request)
-   * @param params.redirectUri - The callback URL registered with the provider
+   * @param params.state                - CSRF state token (generated per request)
+   * @param params.redirectUri          - The callback URL registered with the provider
+   * @param params.codeChallenge        - PKCE code challenge (base64url(sha256(verifier)))
+   * @param params.codeChallengeMethod  - Always "S256"
    */
   abstract getAuthorizationUrl(params: {
     state: string;
     redirectUri: string;
+    codeChallenge: string;
+    codeChallengeMethod: "S256";
   }): string;
 
   /**
    * Exchanges the authorization code (from the callback) for the provider's
    * access token. Called once per successful OAuth callback.
    *
-   * @param code        - The authorization code from the callback query string
-   * @param redirectUri - Must match exactly what was used in getAuthorizationUrl
+   * @param code         - The authorization code from the callback query string
+   * @param redirectUri  - Must match exactly what was used in getAuthorizationUrl
+   * @param codeVerifier - PKCE code verifier (the original random value)
    */
   abstract exchangeCode(
     code: string,
     redirectUri: string,
+    codeVerifier: string,
   ): Promise<{ accessToken: string }>;
 
   /**

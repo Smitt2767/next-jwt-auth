@@ -35,9 +35,13 @@ export class GoogleProvider extends OAuthProvider {
   getAuthorizationUrl({
     state,
     redirectUri,
+    codeChallenge,
+    codeChallengeMethod,
   }: {
     state: string;
     redirectUri: string;
+    codeChallenge: string;
+    codeChallengeMethod: "S256";
   }): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
@@ -47,6 +51,8 @@ export class GoogleProvider extends OAuthProvider {
       state,
       access_type: "offline",
       prompt: "consent",
+      code_challenge: codeChallenge,
+      code_challenge_method: codeChallengeMethod,
     });
     return `${GOOGLE_AUTH_URL}?${params.toString()}`;
   }
@@ -54,6 +60,7 @@ export class GoogleProvider extends OAuthProvider {
   async exchangeCode(
     code: string,
     redirectUri: string,
+    codeVerifier: string,
   ): Promise<{ accessToken: string }> {
     const response = await fetch(GOOGLE_TOKEN_URL, {
       method: "POST",
@@ -64,6 +71,7 @@ export class GoogleProvider extends OAuthProvider {
         client_secret: this.config.clientSecret,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
+        code_verifier: codeVerifier,
       }).toString(),
     });
 
