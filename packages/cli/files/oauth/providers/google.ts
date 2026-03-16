@@ -1,5 +1,3 @@
-// lib/auth/providers/google.ts
-
 import type { OAuthUserInfo } from "../types";
 import { OAuthProvider, type OAuthProviderConfig } from "./base";
 

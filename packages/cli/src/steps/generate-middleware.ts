@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import { resolveCwd } from "../utils/fs";
 import { logger } from "../utils/logger";
+import { stripJsDoc } from "../utils/strip-jsdoc";
 
 /**
  * Parses the major version from a package.json version string.
@@ -30,6 +31,7 @@ export async function generateMiddlewareFile(
   srcDir: boolean,
   nextVersion: string | null,
   alias: string = "@/",
+  clean = false,
 ): Promise<{ fileName: string; filePath: string }> {
   const majorVersion = parseMajorVersion(nextVersion);
   // Next.js 16+ uses proxy.ts as the middleware entrypoint
@@ -104,7 +106,7 @@ export const config = {
 };
 `;
 
-  await fs.writeFile(filePath, content, "utf-8");
+  await fs.writeFile(filePath, clean ? stripJsDoc(content) : content, "utf-8");
   const displayPath = srcDir ? `src/${fileName}` : fileName;
   logger.success(`Generated ${displayPath}`);
 

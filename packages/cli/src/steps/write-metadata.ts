@@ -12,6 +12,7 @@ export interface AuthMetadata {
     libDir: string;
     alias: string;
     srcDir: boolean;
+    clean: boolean;
   };
   files: {
     hasAuthTs: boolean;
@@ -69,6 +70,7 @@ export function createMetadata(opts: {
   libDir: string;
   alias: string;
   srcDir: boolean;
+  clean: boolean;
   hasAuthTs: boolean;
   hasMiddleware: boolean;
   middlewareType: "middleware" | "proxy";
@@ -82,6 +84,7 @@ export function createMetadata(opts: {
       libDir: opts.libDir,
       alias: opts.alias,
       srcDir: opts.srcDir,
+      clean: opts.clean,
     },
     files: {
       hasAuthTs: opts.hasAuthTs,

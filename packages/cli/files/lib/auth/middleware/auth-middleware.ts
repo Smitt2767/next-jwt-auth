@@ -1,4 +1,3 @@
-// lib/auth/middleware/auth-middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getSecondsUntilExpiry, isTokenValid } from "../core/jwt";
 import { getGlobalAuthConfig, debugLog } from "../config";

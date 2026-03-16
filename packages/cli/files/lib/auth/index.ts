@@ -1,5 +1,3 @@
-// lib/auth/index.ts
-//
 // ⚠️  SERVER-ONLY — DO NOT IMPORT THIS FILE IN CLIENT COMPONENTS
 //
 // This is the main entry point for the library. It exports the Auth() factory

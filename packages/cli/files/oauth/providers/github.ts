@@ -1,5 +1,3 @@
-// lib/auth/providers/github.ts
-
 import type { OAuthUserInfo } from "../../lib/auth/types";
 import { OAuthProvider, type OAuthProviderConfig } from "./base";
 

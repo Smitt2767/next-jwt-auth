@@ -1,5 +1,3 @@
-// lib/auth/providers/base.ts
-//
 // Abstract base class for all OAuth providers.
 // Extend this to implement a custom provider.
 

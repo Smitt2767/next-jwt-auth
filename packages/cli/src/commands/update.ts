@@ -194,13 +194,15 @@ export async function update(dryRun = false): Promise<void> {
     await fs.copy(destDir, tempDir, { overwrite: true });
 
     try {
-      await copyLibraryFiles(authDir);
+      const metadata = readMetadata(authDir);
+      const clean = metadata?.config.clean ?? false;
+
+      await copyLibraryFiles(authDir, clean);
 
       // If OAuth is enabled, also update provider + handler files
-      const metadata = readMetadata(authDir);
       if (metadata?.features.oauth.enabled) {
         const providers = metadata.features.oauth.providers as ProviderId[];
-        await copyOAuthFiles(authDir, providers);
+        await copyOAuthFiles(authDir, providers, clean);
         // Bump version in metadata
         await writeMetadata(authDir, mergeMetadata(metadata, {}));
       }

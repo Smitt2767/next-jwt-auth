@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs-extra";
 import { resolveCwd } from "../utils/fs";
 import { logger } from "../utils/logger";
+import { stripJsDoc, stripJsDocFromDir } from "../utils/strip-jsdoc";
 
 /** Provider IDs supported by the CLI. */
 export type ProviderId = "google" | "github";
@@ -22,6 +23,7 @@ export type ProviderId = "google" | "github";
 export async function copyOAuthFiles(
   authDir: string,
   providers: ProviderId[],
+  clean = false,
 ): Promise<void> {
   const srcBase = path.join(__dirname, "files", "oauth");
   const destDir = resolveCwd(authDir);
@@ -32,19 +34,19 @@ export async function copyOAuthFiles(
   await fs.ensureDir(providersDestDir);
 
   // base.ts is always copied
-  await fs.copy(
-    path.join(providersSrcDir, "base.ts"),
-    path.join(providersDestDir, "base.ts"),
-    { overwrite: true },
-  );
+  const baseDestPath = path.join(providersDestDir, "base.ts");
+  await fs.copy(path.join(providersSrcDir, "base.ts"), baseDestPath, { overwrite: true });
+  if (clean) {
+    await fs.writeFile(baseDestPath, stripJsDoc(await fs.readFile(baseDestPath, "utf-8")), "utf-8");
+  }
 
   // ── Copy each selected provider ───────────────────────────────────────────
   for (const id of providers) {
-    await fs.copy(
-      path.join(providersSrcDir, `${id}.ts`),
-      path.join(providersDestDir, `${id}.ts`),
-      { overwrite: true },
-    );
+    const providerDestPath = path.join(providersDestDir, `${id}.ts`);
+    await fs.copy(path.join(providersSrcDir, `${id}.ts`), providerDestPath, { overwrite: true });
+    if (clean) {
+      await fs.writeFile(providerDestPath, stripJsDoc(await fs.readFile(providerDestPath, "utf-8")), "utf-8");
+    }
   }
 
   // ── Generate providers/index.ts dynamically ───────────────────────────────
@@ -55,9 +57,7 @@ export async function copyOAuthFiles(
     })
     .join("\n");
 
-  const providersIndex = `// lib/auth/providers/index.ts
-//
-// This file is managed by @smittdev/next-jwt-auth.
+  const providersIndex = `// This file is managed by @smittdev/next-jwt-auth.
 // Re-run \`npx @smittdev/next-jwt-auth add oauth\` to regenerate after adding providers.
 
 export { OAuthProvider } from "./base";
@@ -75,6 +75,9 @@ ${providerExports}
   const handlersSrcDir = path.join(srcBase, "handlers");
   const handlersDestDir = path.join(destDir, "handlers");
   await fs.copy(handlersSrcDir, handlersDestDir, { overwrite: true });
+  if (clean) {
+    await stripJsDocFromDir(handlersDestDir);
+  }
 
   logger.success(`OAuth providers copied: ${providers.join(", ")}`);
 }

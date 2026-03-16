@@ -1,5 +1,3 @@
-// lib/auth/handlers/oauth.ts
-//
 // Core OAuth route handler. Processes login + callback requests for all providers.
 // This file is managed by @smittdev/next-jwt-auth — do not edit directly.
 // Configure providers in auth.ts instead.

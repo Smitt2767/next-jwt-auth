@@ -7,6 +7,7 @@ import { copyOAuthFiles, type ProviderId } from "../steps/copy-oauth-files";
 import { generateOAuthRoute } from "../steps/generate-route";
 import { logger } from "../utils/logger";
 import { resolveCwd } from "../utils/fs";
+import { stripJsDoc } from "../utils/strip-jsdoc";
 
 const ALL_PROVIDERS: { id: ProviderId; label: string; envVars: string[] }[] = [
   {
@@ -110,9 +111,11 @@ export async function addOAuth(): Promise<void> {
 
   logger.break();
 
+  const clean = metadata.config.clean ?? false;
+
   // ── 4. Copy OAuth files ────────────────────────────────────────────
   logger.step("Copying OAuth provider files...");
-  await copyOAuthFiles(libDir, allProviders);
+  await copyOAuthFiles(libDir, allProviders, clean);
 
   // ── 5. Generate catch-all route ────────────────────────────────────
   logger.step("Generating OAuth route...");
@@ -131,6 +134,7 @@ export async function addOAuth(): Promise<void> {
     libDir,
     metadata.config.alias,
     metadata.config.srcDir,
+    clean,
   );
 
   console.log(
@@ -189,6 +193,7 @@ function buildAuthTsPatch(
   libDir: string,
   alias: string,
   srcDir: boolean,
+  clean = false,
 ): string {
   // Strip leading "src/" from import path (tsconfig maps alias to src/)
   const importSegment =
@@ -213,7 +218,7 @@ function buildAuthTsPatch(
     })
     .join("\n");
 
-  const oauthLoginStub = `
+  const oauthLoginStubRaw = `
     /**
      * Called after a successful OAuth login.
      * \`provider\` is the provider id (e.g. "google", "github").
@@ -223,6 +228,7 @@ function buildAuthTsPatch(
     async oauthLogin(provider, userInfo) {
       throw new Error("oauthLogin() not implemented — edit auth.ts to connect your API");
     },`;
+  const oauthLoginStub = clean ? stripJsDoc(oauthLoginStubRaw) : oauthLoginStubRaw;
 
   return `${providerImports}
 

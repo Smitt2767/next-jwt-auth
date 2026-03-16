@@ -43,9 +43,7 @@ export async function generateOAuthRoute(alias: string): Promise<void> {
     ? "src/app/api/auth/[...oauth]/route.ts"
     : "app/api/auth/[...oauth]/route.ts";
 
-  const content = `// ${displayPath}
-//
-// OAuth catch-all route — managed by @smittdev/next-jwt-auth.
+  const content = `// OAuth catch-all route — managed by @smittdev/next-jwt-auth.
 // Configure providers in auth.ts, not here.
 
 import { auth } from "${authImport}";

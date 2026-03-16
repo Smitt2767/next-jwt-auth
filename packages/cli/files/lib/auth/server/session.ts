@@ -1,4 +1,3 @@
-// lib/auth/server/session.ts
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";

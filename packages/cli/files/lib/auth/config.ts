@@ -1,5 +1,3 @@
-// lib/auth/config.ts
-//
 // Module-level singleton that holds the resolved auth configuration.
 // `Auth()` calls `setGlobalAuthConfig()` once at startup.
 // Every internal module then calls `getGlobalAuthConfig()` instead of

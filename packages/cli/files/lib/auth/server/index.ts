@@ -1,4 +1,3 @@
-// lib/auth/server/index.ts
 export {
   getSession,
   getAccessToken,

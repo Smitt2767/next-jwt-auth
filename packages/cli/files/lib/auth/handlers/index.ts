@@ -1,5 +1,3 @@
-// lib/auth/handlers/index.ts
-//
 // OAuth handler stub — present before OAuth is configured.
 // Run `npx @smittdev/next-jwt-auth add oauth` to replace this with the real handler.
 

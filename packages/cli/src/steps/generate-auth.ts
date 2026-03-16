@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import { resolveCwd } from "../utils/fs";
 import { logger } from "../utils/logger";
+import { stripJsDoc } from "../utils/strip-jsdoc";
 
 /**
  * Generates the user-facing auth.ts file.
@@ -18,6 +19,7 @@ export async function generateAuthFile(
   authDir: string,
   srcDir: boolean,
   alias: string = "@/",
+  clean = false,
 ): Promise<void> {
   // Strip the leading "src/" from the import path because Next.js tsconfig
   // maps "@/*" → "./src/*", so "@/lib/auth" already resolves to "src/lib/auth".
@@ -152,7 +154,7 @@ export const auth = Auth({
 });
 `;
 
-  await fs.writeFile(authFilePath, content, "utf-8");
+  await fs.writeFile(authFilePath, clean ? stripJsDoc(content) : content, "utf-8");
   const displayPath = srcDir ? "src/auth.ts" : "auth.ts";
   logger.success(`Generated ${displayPath}`);
 }

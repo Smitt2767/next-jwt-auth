@@ -1,4 +1,3 @@
-// lib/auth/server/fetchers.ts
 import { redirect } from "next/navigation";
 import type { Session } from "../types";
 import { getSession } from "./session";
