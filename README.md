@@ -48,6 +48,7 @@ npx @smittdev/next-jwt-auth init
 You'll be asked:
 - Where to place the library (default: `lib/auth/` or `src/lib/auth/`)
 - Whether to generate `middleware.ts` (or `proxy.ts` for Next.js 16+)
+- Whether to strip all comments from scaffolded files
 - Whether to install `zod` (the only peer dependency)
 
 ### 2. Implement your adapter and configure
