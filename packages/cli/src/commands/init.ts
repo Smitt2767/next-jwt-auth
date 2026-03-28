@@ -13,7 +13,7 @@ import { installDeps } from "../steps/install-deps";
 import { logger } from "../utils/logger";
 import { createMetadata, writeMetadata } from "../steps/write-metadata";
 
-export async function init(clean = false): Promise<void> {
+export async function init(): Promise<void> {
   logger.banner();
 
   // ── 1. Detect the project ─────────────────────────────────────────
@@ -87,6 +87,12 @@ export async function init(clean = false): Promise<void> {
         name: "generateMiddleware",
         message: `Generate ${middlewareFileName} with route protection scaffold?`,
         initial: true,
+      },
+      {
+        type: "confirm",
+        name: "clean",
+        message: "Strip all comments from scaffolded files?",
+        initial: false,
       },
       ...(project.hasZod
         ? []
@@ -168,14 +174,14 @@ export async function init(clean = false): Promise<void> {
   logger.info("Scaffolding auth library...");
   logger.break();
 
-  await copyLibraryFiles(answers.authDir as string, clean);
+  await copyLibraryFiles(answers.authDir as string, answers.clean as boolean);
 
   if (!answers.skipAuthTs) {
-    await generateAuthFile(answers.authDir as string, project.srcDir, alias, clean);
+    await generateAuthFile(answers.authDir as string, project.srcDir, alias, answers.clean as boolean);
   }
 
   if (answers.generateMiddleware) {
-    await generateMiddlewareFile(project.srcDir, project.nextVersion, alias, clean);
+    await generateMiddlewareFile(project.srcDir, project.nextVersion, alias, answers.clean as boolean);
   }
 
   if (answers.installZod) {
@@ -188,7 +194,7 @@ export async function init(clean = false): Promise<void> {
     libDir: answers.authDir as string,
     alias,
     srcDir: project.srcDir,
-    clean,
+    clean: answers.clean as boolean,
     hasAuthTs: !answers.skipAuthTs,
     hasMiddleware: answers.generateMiddleware as boolean,
     middlewareType: nextMajor >= 16 ? "proxy" : "middleware",

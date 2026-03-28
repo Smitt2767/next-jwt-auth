@@ -12,8 +12,7 @@ const command = args[0];
 
 async function main() {
   if (!command || command === "init") {
-    const clean = args.includes("--clean");
-    await init(clean);
+    await init();
   } else if (command === "update") {
     const dryRun = args.includes("--dry-run");
     await update(dryRun);
@@ -32,9 +31,6 @@ async function main() {
     console.log("  Usage:");
     console.log(
       "    npx @smittdev/next-jwt-auth init               Scaffold auth into your project",
-    );
-    console.log(
-      "    npx @smittdev/next-jwt-auth init --clean       Scaffold without JSDoc comments",
     );
     console.log(
       "    npx @smittdev/next-jwt-auth add oauth          Add OAuth provider support (Google, GitHub)",

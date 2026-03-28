@@ -2,18 +2,20 @@ import path from "path";
 import fs from "fs-extra";
 
 /**
- * Strips all JSDoc block comments (`/** ... *\/`) from a TypeScript source string.
- * Inline `//` comments are preserved.
+ * Strips all comments from a TypeScript source string:
+ * - JSDoc block comments (`/** ... *\/`)
+ * - Standalone `//` comment lines (lines containing only a comment, not inline trailing comments)
  * Consecutive blank lines left by removal are collapsed to a single blank line.
  */
 export function stripJsDoc(source: string): string {
   return source
     .replace(/\/\*\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim() + "\n";
 }
 
-/** Recursively strips JSDoc from all .ts/.tsx files under a directory. */
+/** Recursively strips all comments from all .ts/.tsx files under a directory. */
 export async function stripJsDocFromDir(dir: string): Promise<void> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   await Promise.all(
